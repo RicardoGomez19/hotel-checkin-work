@@ -1,0 +1,19 @@
+{
+  "name": "hotel-checkin",
+  "version": "1.0.0",
+  "description": "Check-in digital para hotel con captura de firma electronica",
+  "main": "server.js",
+  "scripts": {
+    "start": "node server.js"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "dependencies": {
+    "better-sqlite3": "^11.3.0",
+    "express": "^4.19.2",
+    "nodemailer": "^6.9.14",
+    "pdfkit": "^0.15.0",
+    "selfsigned": "^2.4.1"
+  }
+}

@@ -1,0 +1,978 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Panel de registros · Hotel Casa Marfil</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B2430; --paper:#FAF6EE; --paper-dim:#F1EBDB;
+    --brass:#B8935A; --brass-deep:#8E6E3E; --line:#DCD3C0; --charcoal:#2A2620; --error:#B0463A; --ok:#5C6F4F; --warn:#B8863A;
+  }
+  *{box-sizing:border-box;}
+  html{ background:var(--ink); }
+  body{ margin:0; background:var(--ink); font-family:'Inter',sans-serif; color:var(--charcoal); min-height:100vh; min-height:100dvh; padding:32px 16px; }
+  .wrap{ max-width:900px; width:96%; margin:0 auto; background:var(--paper); border:1px solid rgba(184,147,90,0.35); box-shadow:0 30px 60px -20px rgba(0,0,0,0.5); }
+  /* El ancho del panel se ajusta por "escalones" según el tamaño real de
+     pantalla disponible (que es la forma en que la web reconoce si es un
+     celular, una tablet, una laptop o un monitor de escritorio — no hay
+     forma de preguntarle al navegador "¿qué dispositivo eres?", pero el
+     ancho disponible es un indicador confiable y es el método estándar).
+     Así, en vez de un ancho fijo que deja franjas oscuras en monitores
+     grandes, el panel va usando más espacio mientras más pantalla hay. */
+  @media (min-width: 769px) and (max-width: 1023px){ /* tablet */
+    .wrap{ width:94%; max-width:960px; }
+  }
+  @media (min-width: 1024px) and (max-width: 1439px){ /* laptop */
+    .wrap{ width:93%; max-width:1320px; }
+  }
+  @media (min-width: 1440px){ /* monitor de escritorio */
+    .wrap{ width:90%; max-width:1760px; }
+  }
+  nav{ display:flex; gap:18px; padding:14px 32px; border-bottom:1px solid var(--line); background:var(--paper-dim); align-items:center; }
+  nav a{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(42,38,32,0.55); text-decoration:none; }
+  nav a.active{ color:var(--brass-deep); font-weight:600; }
+  header{ padding:22px 32px 16px; border-bottom:1px solid var(--line); display:flex; justify-content:space-between; align-items:baseline; flex-wrap:wrap; gap:10px; }
+  h1{ font-family:'Fraunces',serif; font-size:22px; margin:0; color:var(--ink); }
+  .count{ font-family:'IBM Plex Mono',monospace; font-size:12px; color:var(--brass-deep); }
+  .legend{ display:flex; gap:14px; padding:10px 32px; font-size:11.5px; color:rgba(42,38,32,0.6); flex-wrap:wrap; background:#fff; border-bottom:1px solid var(--line); }
+  .legend span{ display:inline-flex; align-items:center; gap:5px; }
+  .legend .dot{ width:9px; height:9px; border-radius:50%; display:inline-block; }
+  .toolbar{
+    display:flex; flex-wrap:wrap; gap:12px; align-items:center;
+    padding:16px 32px; border-bottom:1px solid var(--line); background:#fff;
+  }
+  .toolbar .group{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .toolbar label{ font-size:11.5px; color:rgba(42,38,32,0.6); }
+  .toolbar input[type=date]{ font-family:'Inter',sans-serif; font-size:12.5px; padding:6px 8px; border:1px solid var(--line); }
+  .toolbar input[type=text]{ font-family:'Inter',sans-serif; font-size:12.5px; padding:6px 8px; border:1px solid var(--line); width:170px; }
+  .summary-strip{
+    display:flex; flex-wrap:wrap; gap:20px; padding:12px 32px; background:var(--paper-dim);
+    border-bottom:1px solid var(--line); font-size:12.5px;
+  }
+  .summary-strip .item{ display:flex; align-items:baseline; gap:6px; }
+  .summary-strip .item .lbl{ color:rgba(42,38,32,0.6); text-transform:uppercase; font-size:10.5px; letter-spacing:0.04em; }
+  .summary-strip .item .val{ font-family:'IBM Plex Mono',monospace; font-weight:600; color:var(--ink); }
+  select{ font-family:'Inter',sans-serif; font-size:12.5px; padding:7px 8px; border:1px solid var(--line); background:#fff; }
+  .btn{ font-family:'Inter',sans-serif; font-size:12px; font-weight:600; padding:8px 14px; cursor:pointer; border:1px solid var(--line); background:#fff; color:var(--brass-deep); }
+  .btn:hover{ border-color:var(--brass); background:var(--paper-dim); }
+  .btn-danger{ color:var(--error); border-color:var(--error); }
+  .btn-danger:hover{ background:#FBECEA; }
+  .btn-dark{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+  table{ width:100%; border-collapse:collapse; }
+  th{
+    text-align:left; font-family:'IBM Plex Mono',monospace; font-size:10.5px; text-transform:uppercase;
+    letter-spacing:0.06em; color:var(--brass-deep); padding:10px 14px; background:var(--paper-dim); border-bottom:1px solid var(--line);
+  }
+  td{ padding:11px 14px; border-bottom:1px solid var(--line); font-size:13.5px; }
+  tr.row-pagado{ background:rgba(92,111,79,0.05); }
+  tr.row-pendiente{ background:rgba(176,70,58,0.05); }
+  tr.row-anticipo{ background:rgba(184,134,58,0.06); }
+  tr:hover td{ filter:brightness(0.98); }
+  .badge{
+    display:inline-block; font-size:10.5px; font-weight:700; padding:3px 9px;
+    border-radius:20px; letter-spacing:0.02em; white-space:nowrap;
+  }
+  .badge-pagado{ background:rgba(92,111,79,0.15); color:var(--ok); }
+  .badge-pendiente{ background:rgba(176,70,58,0.13); color:var(--error); }
+  .badge-anticipo{ background:rgba(184,134,58,0.16); color:var(--warn); }
+  .pendiente-monto{
+    font-family:'IBM Plex Mono',monospace; font-size:10.5px; font-weight:600;
+    color:var(--error); margin-top:4px; white-space:nowrap;
+  }
+  .badge-tipopago{
+    display:inline-block; font-size:10.5px; font-weight:600; padding:3px 9px;
+    border-radius:20px; letter-spacing:0.02em; white-space:nowrap;
+    background:rgba(46,58,77,0.09); color:#2E3A4D; border:1px solid rgba(46,58,77,0.18);
+  }
+  .edited-tag{
+    font-family:'IBM Plex Mono',monospace; font-size:9.5px; text-transform:uppercase;
+    color:var(--brass-deep); border:1px solid var(--brass); border-radius:3px; padding:1px 5px; margin-left:6px;
+  }
+  .offline-tag{
+    font-family:'IBM Plex Mono',monospace; font-size:9.5px; text-transform:uppercase;
+    color:var(--ok); border:1px solid var(--ok); border-radius:3px; padding:1px 5px; margin-left:6px;
+    display:inline-block; margin-top:2px;
+  }
+  .charge-tag{
+    font-family:'IBM Plex Mono',monospace; font-size:9.5px; text-transform:uppercase;
+    color:var(--error); border:1px solid var(--error); border-radius:3px; padding:1px 5px; margin-left:6px;
+    display:inline-block; margin-top:2px;
+  }
+  .icon-actions{ display:flex; gap:4px; white-space:nowrap; }
+  .icon-btn{
+    width:30px; height:30px; display:inline-flex; align-items:center; justify-content:center;
+    border:1px solid var(--line); background:#fff; cursor:pointer; font-size:14px; border-radius:3px;
+    text-decoration:none; color:var(--charcoal); flex-shrink:0;
+  }
+  .icon-btn:hover{ border-color:var(--brass); background:var(--paper-dim); }
+  .icon-btn.icon-danger:hover{ border-color:var(--error); background:#FBECEA; }
+  .empty{ padding:40px; text-align:center; color:rgba(42,38,32,0.5); font-size:13px; }
+  .toast{ display:none; margin:14px 32px 0; padding:10px 12px; font-size:12.5px; }
+  .toast.error{ display:block; background:#FBECEA; border:1px solid var(--error); color:var(--error); }
+  .toast.ok{ display:block; background:#EFF3EC; border:1px solid var(--ok); color:var(--ok); }
+  .table-scroll{ overflow-x:auto; -webkit-overflow-scrolling:touch; }
+
+  /* ---- Modales propios (nada de confirm()/alert() nativos) ---- */
+  .modal-overlay{
+    display:none; position:fixed; inset:0; background:rgba(27,36,48,0.55);
+    align-items:center; justify-content:center; z-index:1000; padding:16px;
+  }
+  /* El modal de confirmación (sí/no) debe quedar SIEMPRE por encima de
+     cualquier otro modal — por ejemplo, al confirmar "eliminar cargo" desde
+     dentro del modal de editar registro — si no, con el mismo z-index queda
+     detrás del que se abrió primero y parece que no reaccionó al clic. */
+  #confirmModal{ z-index:1100; }
+  .modal-overlay.show{ display:flex; }
+  .modal-box{
+    background:var(--paper); border:1px solid rgba(184,147,90,0.4); max-width:420px; width:100%;
+    box-shadow:0 30px 60px -20px rgba(0,0,0,0.6); padding:24px;
+    max-height:calc(100vh - 32px); overflow-y:auto; -webkit-overflow-scrolling:touch;
+    box-sizing:border-box;
+  }
+  #editModal .modal-box{ max-width:460px; }
+  @media (max-width: 480px){
+    .modal-overlay{ padding:0; align-items:flex-end; }
+    .modal-box{ max-width:100%; max-height:92vh; border-left:none; border-right:none; border-bottom:none; }
+  }
+  .modal-box h3{ font-family:'Fraunces',serif; font-size:17px; margin:0 0 8px; color:var(--ink); }
+  .modal-box p{ font-size:13.5px; color:rgba(42,38,32,0.7); line-height:1.5; margin:0 0 18px; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:10px; }
+  .modal-actions button{ padding:9px 16px; font-size:12.5px; font-weight:600; border:1px solid var(--line); background:#fff; cursor:pointer; }
+  .modal-actions .btn-confirm-danger{ background:var(--error); color:#fff; border-color:var(--error); }
+  .modal-actions .btn-confirm{ background:var(--ink); color:var(--paper); border-color:var(--ink); }
+
+  #editModal .field{ display:flex; flex-direction:column; gap:5px; margin-bottom:14px; }
+  #editModal label{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--brass-deep); }
+  #editModal input, #editModal select{
+    font-family:'Inter',sans-serif; font-size:14px; padding:9px 10px; border:1px solid var(--line); background:#fff;
+    width:100%; box-sizing:border-box;
+  }
+  #editModal .row2{ display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  #editModal input[readonly]{ background:var(--paper-dim); color:rgba(42,38,32,0.7); }
+  #editModal .err{ display:none; font-size:12px; color:var(--error); margin-top:8px; }
+  #editModal .stay-dates{
+    display:flex; justify-content:space-between; gap:12px; padding:10px 12px; margin-bottom:14px;
+    background:var(--paper-dim); border:1px solid var(--line); font-size:12.5px; color:rgba(42,38,32,0.75);
+  }
+  #editModal .stay-dates b{ color:var(--ink); }
+  .charge-item{
+    display:flex; justify-content:space-between; align-items:flex-start; gap:8px;
+    padding:7px 0; border-bottom:1px dashed var(--line); font-size:12.5px;
+  }
+  .charge-item .info{ display:flex; flex-direction:column; gap:1px; }
+  .charge-item .concepto{ color:var(--ink); }
+  .charge-item .meta{ font-family:'IBM Plex Mono',monospace; font-size:10.5px; color:rgba(42,38,32,0.55); }
+  .charge-status-toggle{
+    align-self:flex-start; margin-top:3px; font-family:'IBM Plex Mono',monospace; font-size:9.5px; font-weight:600;
+    text-transform:uppercase; letter-spacing:0.02em; border-radius:3px; padding:2px 7px; cursor:pointer; border:1px solid;
+  }
+  .charge-status-toggle.is-pendiente{ background:rgba(176,70,58,0.10); color:var(--error); border-color:var(--error); }
+  .charge-status-toggle.is-pagado{ background:rgba(92,111,79,0.12); color:var(--ok); border-color:var(--ok); }
+  .charge-status-toggle:disabled{ opacity:0.5; cursor:wait; }
+  .charge-item .monto{ font-weight:600; color:var(--error); white-space:nowrap; }
+  .charge-item .del-charge{
+    background:none; border:none; color:var(--error); cursor:pointer; font-size:13px; padding:0 2px; flex-shrink:0;
+  }
+  .charge-total{ font-size:12px; font-weight:600; color:var(--ink); padding-top:6px; text-align:right; }
+  .btn-add-charge{
+    margin-top:10px; padding:8px 14px; font-size:12.5px; font-weight:600;
+    background:#fff; border:1px solid var(--brass); color:var(--brass-deep); cursor:pointer; width:100%;
+  }
+  .btn-add-charge:disabled{ opacity:0.5; cursor:not-allowed; }
+
+  @media (max-width: 768px){
+    body{ padding:16px 8px; }
+    .wrap{ max-width:100%; width:100%; }
+    nav{ padding:12px 18px; flex-wrap:wrap; row-gap:8px; }
+    nav #logoutBtn{ margin-left:0 !important; order:99; width:100%; }
+    header{ padding:18px 18px 14px; }
+    h1{ font-size:19px; }
+    .legend{ padding:10px 18px; }
+    .toolbar{ padding:14px 18px; flex-direction:column; align-items:stretch; }
+    .toolbar .group{ width:100%; }
+    .toolbar .group:last-child{ margin-left:0 !important; }
+    .toolbar select, .toolbar input[type=date], .toolbar input[type=text]{ flex:1; min-width:110px; width:auto; }
+    .summary-strip{ padding:12px 18px; gap:14px; }
+    .toolbar .btn{ flex:1; min-width:120px; }
+    table{ min-width:680px; }
+    #editModal .row2{ grid-template-columns:1fr; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a href="/registros.html" class="active">Registros</a>
+      <a href="/stats.html">Gráficas</a>
+      <a href="/settings.html">Configuración</a>
+      <button id="logoutBtn" style="margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:11px; padding:6px 12px; background:transparent; border:1px solid var(--line); color:var(--brass-deep); cursor:pointer;">Cerrar sesión</button>
+    </nav>
+    <header>
+      <h1>Registros de huéspedes</h1>
+      <span class="count" id="count">cargando…</span>
+    </header>
+
+    <div class="legend">
+      <span><span class="dot" style="background:var(--ok);"></span> Pagado</span>
+      <span><span class="dot" style="background:var(--error);"></span> Pendiente</span>
+      <span><span class="dot" style="background:var(--warn);"></span> Anticipo</span>
+      <span><span class="edited-tag">Editado</span> el registro se modificó después de creado (pago actualizado o estancia extendida)</span>
+      <span><span class="offline-tag">📴 Capturado</span> se llenó en un celular sin conexión y se subió solo al recuperar la red</span>
+      <span><span class="charge-tag">🔨 Debe $</span> tiene cargos extra SIN PAGAR (daños, objetos rotos, etc.) — ábrelo para ver el detalle o marcarlos como pagados</span>
+    </div>
+
+    <div class="toolbar">
+      <div class="group">
+        <label>Buscar</label>
+        <input type="text" id="nameFilter" placeholder="Nombre del huésped…">
+        <label>Entrada del</label>
+        <input type="date" id="fromDate">
+        <label>al</label>
+        <input type="date" id="toDate">
+        <label>Pago</label>
+        <select id="paymentFilter">
+          <option value="">Todos</option>
+          <option>Efectivo</option>
+          <option>Tarjeta débito</option>
+          <option>Tarjeta crédito</option>
+          <option>Prepago (plataforma)</option>
+        </select>
+        <button class="btn" id="filterBtn">Filtrar</button>
+        <button class="btn btn-dark" id="exportBtn">Exportar CSV ↓</button>
+      </div>
+      <div class="group" style="margin-left:auto;">
+        <label>Eliminar registros de más de</label>
+        <select id="cleanupDays">
+          <option value="30">30 días</option>
+          <option value="60">60 días</option>
+          <option value="90">90 días</option>
+          <option value="180">180 días</option>
+        </select>
+        <button class="btn btn-danger" id="cleanupBtn">Eliminar antiguos</button>
+      </div>
+    </div>
+
+    <div class="summary-strip">
+      <div class="item"><span class="lbl">Registros</span><span class="val" id="sumCount">—</span></div>
+      <div class="item"><span class="lbl">Total facturado</span><span class="val" id="sumTotal">—</span></div>
+    </div>
+
+    <div class="toast" id="toast"></div>
+
+    <div class="table-scroll">
+    <table id="table" style="display:none;">
+      <thead>
+        <tr>
+          <th>Folio</th><th>Huésped</th><th>País</th><th>Hab.</th><th>Pago</th><th>Estado</th><th>Fecha</th><th></th>
+        </tr>
+      </thead>
+      <tbody id="tbody"></tbody>
+    </table>
+    </div>
+    <div class="empty" id="empty" style="display:none;">Aún no hay check-ins registrados.</div>
+  </div>
+
+  <!-- Modal de confirmación genérico (reemplaza confirm() del navegador) -->
+  <div class="modal-overlay" id="confirmModal">
+    <div class="modal-box">
+      <h3 id="confirmTitle">¿Confirmar acción?</h3>
+      <p id="confirmMsg"></p>
+      <div class="modal-actions">
+        <button id="confirmCancelBtn">Cancelar</button>
+        <button id="confirmOkBtn" class="btn-confirm-danger">Eliminar</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Modal de edición: noches, precio, personas, estado de pago -->
+  <div class="modal-overlay" id="editModal">
+    <div class="modal-box">
+      <h3>Editar registro <span id="editFolio"></span></h3>
+      <p>Usa esto para actualizar un pago pendiente o agregar noches extra — no crea un registro nuevo.</p>
+      <div class="stay-dates">
+        <span>Entrada: <b id="editCheckIn">—</b></span>
+        <span>Salida: <b id="editCheckOut">—</b></span>
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="editNights">Noches</label>
+          <input type="text" id="editNights" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="editGuests">Personas</label>
+          <input type="text" id="editGuests" inputmode="numeric">
+        </div>
+      </div>
+      <div class="field">
+        <label for="editPrice">Precio total</label>
+        <input type="text" id="editPrice" inputmode="decimal">
+      </div>
+      <div class="field">
+        <label for="editPaymentType">Tipo de pago</label>
+        <select id="editPaymentType">
+          <option>Efectivo</option>
+          <option>Tarjeta débito</option>
+          <option>Tarjeta crédito</option>
+          <option>Transferencia</option>
+          <option>Prepago (plataforma)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label style="display:flex; align-items:center; gap:8px; text-transform:none; font-size:12.5px; cursor:pointer; font-weight:400; color:var(--ink);">
+          <input type="checkbox" id="editSplitToggle" style="width:auto;">
+          ¿Pagó con dos formas de pago distintas?
+        </label>
+      </div>
+      <div id="editSplitFields" style="display:none;">
+        <div class="field">
+          <label for="editSplitAmount1">Cantidad con la 1ª forma</label>
+          <input type="text" id="editSplitAmount1" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="editPaymentType2">2ª forma de pago</label>
+          <select id="editPaymentType2">
+            <option value="" disabled selected>Selecciona</option>
+            <option>Efectivo</option>
+            <option>Tarjeta débito</option>
+            <option>Tarjeta crédito</option>
+            <option>Transferencia</option>
+            <option>Prepago (plataforma)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="editSplitAmount2">Cantidad con la 2ª forma</label>
+          <input type="text" id="editSplitAmount2" readonly>
+        </div>
+      </div>
+      <div class="field" id="editSplitPagadoNote" style="display:none; margin-top:-6px;">
+        <small style="color:var(--ok); font-size:11.5px;">✓ Al completar las dos cantidades, el estado de pago se marca como "Pagado" automáticamente.</small>
+      </div>
+      <div class="field">
+        <label for="editStatus">Estado de pago</label>
+        <select id="editStatus">
+          <option>Pagado</option>
+          <option>Pendiente</option>
+          <option>Anticipo</option>
+        </select>
+      </div>
+      <div class="field" id="editAmountField" style="display:none;">
+        <label for="editAmount">Monto pagado (anticipo)</label>
+        <input type="text" id="editAmount" inputmode="decimal">
+      </div>
+      <div class="err" id="editErr"></div>
+
+      <hr style="border:none; border-top:1px dashed var(--line); margin:16px 0;">
+      <div>
+        <label style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--brass-deep);">Cargos extra (daños, objetos rotos, desorden…)</label>
+        <div id="extraChargesList" style="margin-top:8px;"></div>
+        <div class="row2" style="margin-top:10px;">
+          <div class="field">
+            <label for="extraConcepto">Concepto</label>
+            <input type="text" id="extraConcepto" placeholder="Ej. vaso roto en la habitación">
+          </div>
+          <div class="field">
+            <label for="extraMonto">Cantidad a cobrar</label>
+            <input type="text" id="extraMonto" inputmode="decimal" placeholder="Ej. 150">
+          </div>
+        </div>
+        <div class="field">
+          <label for="extraPaymentType">Tipo de pago</label>
+          <select id="extraPaymentType">
+            <option value="" disabled selected>Selecciona una opción</option>
+            <option>Efectivo</option>
+            <option>Tarjeta débito</option>
+            <option>Tarjeta crédito</option>
+            <option>Transferencia</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="extraPaymentStatus">¿Ya se pagó?</label>
+          <select id="extraPaymentStatus">
+            <option value="Pendiente" selected>Pendiente</option>
+            <option value="Pagado">Pagado</option>
+          </select>
+        </div>
+        <div class="err" id="extraChargeErr"></div>
+        <button id="addExtraChargeBtn" type="button" class="btn-add-charge">+ Agregar cargo</button>
+      </div>
+
+      <hr style="border:none; border-top:1px dashed var(--line); margin:16px 0;">
+      <div>
+        <label style="font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--brass-deep);">Historial de cambios</label>
+        <div id="editHistory" style="margin-top:8px; max-height:140px; overflow-y:auto; font-size:12px; color:rgba(42,38,32,0.7);"></div>
+      </div>
+      <div class="modal-actions" style="margin-top:16px;">
+        <button id="editCancelBtn">Cancelar</button>
+        <button id="editSaveBtn" class="btn-confirm">Guardar cambios</button>
+      </div>
+    </div>
+  </div>
+
+<script>
+  function mostrarToast(texto, tipo){
+    const t = document.getElementById('toast');
+    t.textContent = texto;
+    t.className = 'toast ' + tipo;
+    setTimeout(() => { t.className = 'toast'; }, 4000);
+  }
+
+  // ---- Modal de confirmación genérico, con Promise (sin bloquear el navegador) ----
+  function pedirConfirmacion(titulo, mensaje){
+    return new Promise((resolve) => {
+      const overlay = document.getElementById('confirmModal');
+      document.getElementById('confirmTitle').textContent = titulo;
+      document.getElementById('confirmMsg').textContent = mensaje;
+      overlay.classList.add('show');
+
+      const okBtn = document.getElementById('confirmOkBtn');
+      const cancelBtn = document.getElementById('confirmCancelBtn');
+
+      function limpiar(resultado){
+        overlay.classList.remove('show');
+        okBtn.removeEventListener('click', onOk);
+        cancelBtn.removeEventListener('click', onCancel);
+        resolve(resultado);
+      }
+      function onOk(){ limpiar(true); }
+      function onCancel(){ limpiar(false); }
+
+      okBtn.addEventListener('click', onOk);
+      cancelBtn.addEventListener('click', onCancel);
+    });
+  }
+
+  function obtenerFiltros(){
+    const from = document.getElementById('fromDate').value;
+    const to = document.getElementById('toDate').value;
+    const paymentType = document.getElementById('paymentFilter').value;
+    const q = document.getElementById('nameFilter').value.trim();
+    const params = new URLSearchParams();
+    if(from) params.set('from', from);
+    if(to) params.set('to', to);
+    if(paymentType) params.set('paymentType', paymentType);
+    if(q) params.set('q', q);
+    return params;
+  }
+
+  const BADGE_CLASE = { Pagado: 'badge-pagado', Pendiente: 'badge-pendiente', Anticipo: 'badge-anticipo' };
+  const ROW_CLASE = { Pagado: 'row-pagado', Pendiente: 'row-pendiente', Anticipo: 'row-anticipo' };
+
+  let cargando = false; // evita que se disparen cargas encimadas (una posible causa de que la pantalla pareciera "trabada")
+
+  const formatoMoneda = new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN' });
+
+  function formatoFechaHoraCorta(iso){
+    const d = new Date(iso);
+    if(isNaN(d)) return iso;
+    return d.toLocaleString('es-MX', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+  }
+
+  // Igual que "formatearTipoPago" en el servidor: si el huésped pagó con
+  // una sola forma de pago (el caso normal), solo se ve su nombre. Si pagó
+  // con dos formas distintas, se ven ambas con lo que se pagó con cada una.
+  function formatearTipoPago(r){
+    if(r.paymentType2){
+      const m1 = Number(r.splitAmount1 || 0).toFixed(2);
+      const m2 = Number(r.splitAmount2 || 0).toFixed(2);
+      return `${r.paymentType} ($${m1}) + ${r.paymentType2} ($${m2})`;
+    }
+    return r.paymentType || '—';
+  }
+
+  // Lo "pendiente por cobrar" de un registro depende de su estado de pago:
+  // ya pagado no debe nada, pendiente debe el precio completo, y un
+  // anticipo debe la diferencia entre el precio y lo que ya se abonó.
+  function pendienteDe(r){
+    const precio = Number(r.price) || 0;
+    const pagado = Number(r.amountPaid) || 0;
+    if(r.paymentStatus === 'Pagado') return 0;
+    if(r.paymentStatus === 'Anticipo') return Math.max(precio - pagado, 0);
+    return precio; // Pendiente
+  }
+
+  function actualizarResumen(registros){
+    const total = registros.reduce((acc, r) => acc + (Number(r.price) || 0), 0);
+    document.getElementById('sumCount').textContent = registros.length;
+    document.getElementById('sumTotal').textContent = formatoMoneda.format(total);
+  }
+
+  async function cargarRegistros(){
+    if(cargando) return;
+    cargando = true;
+    try {
+      const res = await fetch('/api/checkins?' + obtenerFiltros().toString());
+      if(res.status === 401){ window.location.href = '/login.html'; return; }
+      const registros = await res.json();
+
+      document.getElementById('count').textContent = registros.length + ' registro(s)';
+      actualizarResumen(registros);
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = '';
+
+      if(registros.length === 0){
+        document.getElementById('empty').style.display = 'block';
+        document.getElementById('table').style.display = 'none';
+        return;
+      }
+      document.getElementById('empty').style.display = 'none';
+
+      registros.forEach(r => {
+        const tr = document.createElement('tr');
+        tr.className = ROW_CLASE[r.paymentStatus] || '';
+        tr.innerHTML = `
+          <td>${r.folio}</td>
+          <td>${r.fullName}</td>
+          <td>${r.country}</td>
+          <td>${r.room}</td>
+          <td><span class="badge-tipopago">${formatearTipoPago(r)}</span></td>
+          <td>
+            <span class="badge ${BADGE_CLASE[r.paymentStatus] || ''}">${r.paymentStatus || '—'}</span>
+            ${pendienteDe(r) > 0 ? `<div class="pendiente-monto">Debe ${formatoMoneda.format(pendienteDe(r))}</div>` : ''}
+          </td>
+          <td>${r.fecha}${r.updatedAt ? '<span class="edited-tag">Editado</span>' : ''}${r.queuedAt ? `<br><span class="offline-tag" title="Se llenó sin conexión y se sincronizó después">📴 Capturado ${formatoFechaHoraCorta(r.queuedAt)}</span>` : ''}${Number(r.totalCargosExtraPendientes) > 0 ? `<br><span class="charge-tag" title="Cargos extra pendientes de cobrar (daños, objetos rotos, etc.)">🔨 Debe ${formatoMoneda.format(r.totalCargosExtraPendientes)}</span>` : ''}</td>
+          <td>
+            <div class="icon-actions">
+              <a class="icon-btn" href="/api/checkins/${r.id}/id-photo" target="_blank" title="Ver foto de identificación">🪪</a>
+              <a class="icon-btn" href="/api/checkins/${r.id}/pdf" target="_blank" title="Ver comprobante PDF">📄</a>
+              <button class="icon-btn" data-send="${r.id}" title="Enviar comprobante por correo">✉️</button>
+              <button class="icon-btn" data-edit="${r.id}" title="Editar registro">✏️</button>
+              <button class="icon-btn icon-danger" data-del="${r.id}" data-folio="${r.folio}" title="Eliminar registro">🗑️</button>
+            </div>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('table').style.display = 'table';
+    } catch(err){
+      document.getElementById('count').textContent = 'Error al cargar';
+    } finally {
+      cargando = false;
+    }
+  }
+
+  cargarRegistros();
+  document.getElementById('filterBtn').addEventListener('click', cargarRegistros);
+
+  // Búsqueda en vivo: se dispara sola en cuanto se escribe la primera letra
+  // (con un pequeño "debounce" para no mandar una petición por cada tecla),
+  // y al borrar todo el texto vuelve a mostrar todos los registros —igual
+  // que si nunca se hubiera escrito nada— sin tener que tocar "Filtrar".
+  let busquedaTimeout = null;
+  document.getElementById('nameFilter').addEventListener('input', () => {
+    clearTimeout(busquedaTimeout);
+    busquedaTimeout = setTimeout(cargarRegistros, 250);
+  });
+  document.getElementById('nameFilter').addEventListener('keydown', (e) => {
+    if(e.key === 'Enter'){ clearTimeout(busquedaTimeout); cargarRegistros(); }
+  });
+
+  // ---- Un solo listener de clics para toda la tabla (evita duplicar manejadores) ----
+  document.getElementById('tbody').addEventListener('click', async (e) => {
+    const btn = e.target.closest('button');
+    if(!btn) return;
+
+    // Enviar por correo
+    if(btn.dataset.send){
+      const id = btn.dataset.send;
+      const original = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = '…';
+      try {
+        const res = await fetch(`/api/checkins/${id}/send-email`, { method: 'POST' });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || 'No se pudo enviar.');
+        mostrarToast('Comprobante enviado por correo.', 'ok');
+      } catch(err){
+        mostrarToast(err.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = original;
+      }
+      return;
+    }
+
+    // Eliminar
+    if(btn.dataset.del){
+      const id = btn.dataset.del;
+      const folio = btn.dataset.folio;
+      const confirmado = await pedirConfirmacion(
+        'Eliminar registro',
+        `¿Eliminar el registro ${folio}? Esto borra también su firma, foto y PDF. Esta acción no se puede deshacer.`
+      );
+      if(!confirmado) return;
+
+      try {
+        const res = await fetch(`/api/checkins/${id}`, { method: 'DELETE' });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || 'No se pudo eliminar.');
+        mostrarToast(`Registro ${folio} eliminado.`, 'ok');
+        await cargarRegistros();
+      } catch(err){
+        mostrarToast(err.message, 'error');
+      }
+      return;
+    }
+
+    // Editar
+    if(btn.dataset.edit){
+      abrirEdicion(btn.dataset.edit);
+    }
+  });
+
+  // ---- Modal de edición ----
+  let editandoId = null;
+  let editCheckInISO = null; // la fecha de entrada nunca se edita aquí, solo sirve para recalcular la salida
+  const editStatusEl = document.getElementById('editStatus');
+  const editAmountField = document.getElementById('editAmountField');
+  const editNightsEl = document.getElementById('editNights');
+  const editCheckInLabel = document.getElementById('editCheckIn');
+  const editCheckOutLabel = document.getElementById('editCheckOut');
+  const editPriceEl = document.getElementById('editPrice');
+  const editPaymentTypeEl = document.getElementById('editPaymentType');
+  const editSplitToggleEl = document.getElementById('editSplitToggle');
+  const editSplitFieldsEl = document.getElementById('editSplitFields');
+  const editSplitAmount1El = document.getElementById('editSplitAmount1');
+  const editSplitAmount2El = document.getElementById('editSplitAmount2');
+  const editPaymentType2El = document.getElementById('editPaymentType2');
+
+  // Igual que en el formulario del huésped: la segunda cantidad nunca se
+  // escribe a mano, siempre es "precio total menos la primera cantidad".
+  function actualizarSegundaCantidadEdicion(){
+    const precio = Number(editPriceEl.value) || 0;
+    const monto1 = Number(editSplitAmount1El.value) || 0;
+    const restante = precio - monto1;
+    editSplitAmount2El.value = restante > 0 ? restante.toFixed(2) : '0.00';
+  }
+
+  // Si las dos cantidades del pago dividido ya quedaron completas (las dos
+  // formas de pago elegidas y las cantidades sumando el precio total), eso
+  // significa que el huésped YA PAGÓ TODO — entre las dos formas de pago no
+  // debería quedar nada pendiente. Por eso el estado de pago se marca solo
+  // como "Pagado" en cuanto se completa, en vez de dejar que sigan
+  // mostrando "Pendiente"/"Anticipo" con un pago que ya se completó.
+  function verificarCompletitudPagoDividido(){
+    const nota = document.getElementById('editSplitPagadoNote');
+    if(!editSplitToggleEl.checked){ nota.style.display = 'none'; return; }
+    const precio = Number(editPriceEl.value) || 0;
+    const monto1 = Number(editSplitAmount1El.value) || 0;
+    const monto2 = Number(editSplitAmount2El.value) || 0;
+    const completo = editPaymentType2El.value && monto1 > 0 && monto2 > 0 && Math.abs((monto1 + monto2) - precio) < 0.01;
+    nota.style.display = completo ? 'block' : 'none';
+    if(completo){
+      editStatusEl.value = 'Pagado';
+      editAmountField.style.display = 'none';
+    }
+  }
+
+  editSplitToggleEl.addEventListener('change', () => {
+    editSplitFieldsEl.style.display = editSplitToggleEl.checked ? 'block' : 'none';
+    if(editSplitToggleEl.checked){
+      // Si ya había un anticipo registrado, se asume que la primera forma
+      // de pago fue justo ese anticipo — el admin solo tiene que indicar
+      // cómo se pagó el resto, en vez de volver a capturar todo desde cero.
+      if(editStatusEl.value === 'Anticipo'){
+        const anticipoActual = Number(document.getElementById('editAmount').value) || 0;
+        if(anticipoActual > 0) editSplitAmount1El.value = anticipoActual.toFixed(2);
+      }
+      actualizarSegundaCantidadEdicion();
+    }
+    verificarCompletitudPagoDividido();
+  });
+  editSplitAmount1El.addEventListener('input', () => { actualizarSegundaCantidadEdicion(); verificarCompletitudPagoDividido(); });
+  editPriceEl.addEventListener('input', () => { actualizarSegundaCantidadEdicion(); verificarCompletitudPagoDividido(); });
+  editPaymentType2El.addEventListener('change', verificarCompletitudPagoDividido);
+
+  function formatearFechaCorta(iso){
+    if(!iso) return '—';
+    return new Date(iso + 'T00:00:00').toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' });
+  }
+
+  // Vista previa en vivo: si el admin cambia el número de noches, la fecha
+  // de salida que se muestra aquí se extiende (o acorta) sola — el valor
+  // real y definitivo lo vuelve a calcular el servidor al guardar.
+  function actualizarPreviaCheckOut(){
+    const noches = Number(editNightsEl.value);
+    if(editCheckInISO && noches >= 1){
+      const d = new Date(editCheckInISO + 'T00:00:00');
+      d.setDate(d.getDate() + noches);
+      editCheckOutLabel.textContent = d.toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric' });
+    } else {
+      editCheckOutLabel.textContent = '—';
+    }
+  }
+  editNightsEl.addEventListener('input', actualizarPreviaCheckOut);
+
+  editStatusEl.addEventListener('change', () => {
+    editAmountField.style.display = editStatusEl.value === 'Anticipo' ? 'block' : 'none';
+  });
+
+  async function abrirEdicion(id){
+    try {
+      const res = await fetch(`/api/checkins/${id}`);
+      if(!res.ok) throw new Error('No se pudo cargar el registro.');
+      const registro = await res.json();
+      editandoId = id;
+      document.getElementById('editFolio').textContent = registro.folio;
+      document.getElementById('editNights').value = registro.nights;
+      document.getElementById('editGuests').value = registro.guests;
+      document.getElementById('editPrice').value = registro.price;
+      editPaymentTypeEl.value = registro.paymentType;
+      if(registro.paymentType2){
+        editSplitToggleEl.checked = true;
+        editSplitFieldsEl.style.display = 'block';
+        editSplitAmount1El.value = registro.splitAmount1;
+        editPaymentType2El.value = registro.paymentType2;
+        editSplitAmount2El.value = registro.splitAmount2;
+      } else {
+        editSplitToggleEl.checked = false;
+        editSplitFieldsEl.style.display = 'none';
+        editSplitAmount1El.value = '';
+        editPaymentType2El.value = '';
+        editSplitAmount2El.value = '';
+      }
+      editStatusEl.value = registro.paymentStatus;
+      document.getElementById('editAmount').value = registro.amountPaid;
+      editAmountField.style.display = registro.paymentStatus === 'Anticipo' ? 'block' : 'none';
+      document.getElementById('editErr').style.display = 'none';
+
+      editCheckInISO = registro.checkInDate || null;
+      editCheckInLabel.textContent = formatearFechaCorta(registro.checkInDate);
+      editCheckOutLabel.textContent = formatearFechaCorta(registro.checkOutDate);
+
+      const historyBox = document.getElementById('editHistory');
+      historyBox.innerHTML = 'Cargando historial…';
+      fetch(`/api/checkins/${id}/history`).then(r => r.json()).then(historial => {
+        if(historial.length === 0){
+          historyBox.innerHTML = '<em style="color:rgba(42,38,32,0.45);">Sin cambios todavía — este es el registro original.</em>';
+          return;
+        }
+        historyBox.innerHTML = historial.map(h => `
+          <div style="padding:6px 0; border-bottom:1px dashed var(--line);">
+            <div style="font-family:'IBM Plex Mono',monospace; font-size:10px; color:var(--brass-deep);">${h.editedAt}</div>
+            <div>${h.summary}</div>
+          </div>
+        `).join('');
+      });
+
+      document.getElementById('extraConcepto').value = '';
+      document.getElementById('extraMonto').value = '';
+      document.getElementById('extraPaymentType').value = '';
+      document.getElementById('extraPaymentStatus').value = 'Pendiente';
+      document.getElementById('extraChargeErr').style.display = 'none';
+      await cargarCargosExtra(id);
+
+      document.getElementById('editModal').classList.add('show');
+    } catch(err){
+      mostrarToast(err.message, 'error');
+    }
+  }
+
+  async function cargarCargosExtra(checkinId){
+    const cont = document.getElementById('extraChargesList');
+    cont.innerHTML = '<em style="color:rgba(42,38,32,0.45); font-size:12.5px;">Cargando…</em>';
+    const res = await fetch(`/api/checkins/${checkinId}/cargos-extra`);
+    const cargos = await res.json();
+
+    if(cargos.length === 0){
+      cont.innerHTML = '<em style="color:rgba(42,38,32,0.45); font-size:12.5px;">Sin cargos extra registrados.</em>';
+      return;
+    }
+
+    const total = cargos.reduce((acc, c) => acc + Number(c.monto), 0);
+    const pendiente = cargos.filter(c => c.paymentStatus === 'Pendiente').reduce((acc, c) => acc + Number(c.monto), 0);
+    cont.innerHTML = cargos.map(c => `
+      <div class="charge-item">
+        <div class="info">
+          <span class="concepto">${c.concepto}</span>
+          <span class="meta">${c.paymentType} · ${formatoFechaHoraCorta(c.createdAt)}</span>
+          <button type="button" class="charge-status-toggle ${c.paymentStatus === 'Pagado' ? 'is-pagado' : 'is-pendiente'}" data-charge-id="${c.id}" data-current="${c.paymentStatus}" title="Tocar para cambiar a ${c.paymentStatus === 'Pagado' ? 'Pendiente' : 'Pagado'}">${c.paymentStatus === 'Pagado' ? '✓ Pagado' : '● Pendiente'}</button>
+        </div>
+        <span class="monto">${formatoMoneda.format(c.monto)}</span>
+        <button type="button" class="del-charge" data-charge-id="${c.id}" title="Eliminar este cargo">🗑</button>
+      </div>
+    `).join('') + `<div class="charge-total">Total: ${formatoMoneda.format(total)}${pendiente > 0 ? ` · Pendiente: ${formatoMoneda.format(pendiente)}` : ' · todo pagado'}</div>`;
+  }
+
+  document.getElementById('extraChargesList').addEventListener('click', async (e) => {
+    const toggleBtn = e.target.closest('.charge-status-toggle');
+    if(toggleBtn){
+      const nuevoEstado = toggleBtn.dataset.current === 'Pagado' ? 'Pendiente' : 'Pagado';
+      toggleBtn.disabled = true;
+      try {
+        const res = await fetch(`/api/cargos-extra/${toggleBtn.dataset.chargeId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ paymentStatus: nuevoEstado }),
+        });
+        const data = await res.json();
+        if(!res.ok) throw new Error(data.error || 'No se pudo actualizar.');
+        await cargarCargosExtra(editandoId);
+        await cargarRegistros();
+      } catch(err){
+        mostrarToast(err.message, 'error');
+      }
+      return;
+    }
+    const btn = e.target.closest('.del-charge');
+    if(!btn) return;
+    const ok = await pedirConfirmacion('¿Eliminar este cargo?', 'Esta acción no se puede deshacer.');
+    if(!ok) return;
+    try {
+      const res = await fetch(`/api/cargos-extra/${btn.dataset.chargeId}`, { method: 'DELETE' });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'No se pudo eliminar el cargo.');
+      await cargarCargosExtra(editandoId);
+      await cargarRegistros();
+    } catch(err){
+      mostrarToast(err.message, 'error');
+    }
+  });
+
+  document.getElementById('addExtraChargeBtn').addEventListener('click', async () => {
+    const errBox = document.getElementById('extraChargeErr');
+    errBox.style.display = 'none';
+    const btn = document.getElementById('addExtraChargeBtn');
+    btn.disabled = true;
+    btn.textContent = 'Agregando…';
+
+    try {
+      const res = await fetch(`/api/checkins/${editandoId}/cargos-extra`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          concepto: document.getElementById('extraConcepto').value,
+          paymentType: document.getElementById('extraPaymentType').value,
+          paymentStatus: document.getElementById('extraPaymentStatus').value,
+          monto: document.getElementById('extraMonto').value,
+        }),
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'No se pudo agregar el cargo.');
+
+      document.getElementById('extraConcepto').value = '';
+      document.getElementById('extraMonto').value = '';
+      document.getElementById('extraPaymentType').value = '';
+      document.getElementById('extraPaymentStatus').value = 'Pendiente';
+      await cargarCargosExtra(editandoId);
+      await cargarRegistros();
+      mostrarToast('Cargo extra agregado.', 'ok');
+    } catch(err){
+      errBox.textContent = err.message;
+      errBox.style.display = 'block';
+    } finally {
+      btn.disabled = false;
+      btn.textContent = '+ Agregar cargo';
+    }
+  });
+
+  document.getElementById('editCancelBtn').addEventListener('click', () => {
+    document.getElementById('editModal').classList.remove('show');
+    editandoId = null;
+    editCheckInISO = null;
+  });
+
+  document.getElementById('editSaveBtn').addEventListener('click', async () => {
+    const errBox = document.getElementById('editErr');
+    errBox.style.display = 'none';
+
+    // Misma validación que en el formulario del huésped: si está activado
+    // el pago dividido, las dos formas deben ser distintas y las cantidades
+    // tienen que sumar el precio total.
+    if(editSplitToggleEl.checked){
+      const precio = Number(editPriceEl.value) || 0;
+      const monto1 = Number(editSplitAmount1El.value) || 0;
+      const monto2 = Number(editSplitAmount2El.value) || 0;
+      if(!editPaymentType2El.value){
+        errBox.textContent = 'Selecciona la segunda forma de pago.';
+        errBox.style.display = 'block';
+        return;
+      }
+      if(editPaymentTypeEl.value === editPaymentType2El.value){
+        errBox.textContent = 'Las dos formas de pago deben ser distintas entre sí.';
+        errBox.style.display = 'block';
+        return;
+      }
+      if(monto1 <= 0 || monto2 <= 0 || Math.abs((monto1 + monto2) - precio) > 0.01){
+        errBox.textContent = 'Las dos cantidades deben sumar exactamente el precio total.';
+        errBox.style.display = 'block';
+        return;
+      }
+    }
+
+    const saveBtn = document.getElementById('editSaveBtn');
+    saveBtn.disabled = true;
+    saveBtn.textContent = 'Guardando…';
+
+    try {
+      const res = await fetch(`/api/checkins/${editandoId}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nights: document.getElementById('editNights').value,
+          guests: document.getElementById('editGuests').value,
+          price: document.getElementById('editPrice').value,
+          paymentType: editPaymentTypeEl.value,
+          // Cadena vacía = "quitar la segunda forma de pago" (distinto de no
+          // mandar el campo, que significaría "no tocarlo") — así el panel
+          // también sirve para DESHACER un pago dividido si se capturó mal.
+          paymentType2: editSplitToggleEl.checked ? editPaymentType2El.value : '',
+          splitAmount1: editSplitToggleEl.checked ? editSplitAmount1El.value : '',
+          splitAmount2: editSplitToggleEl.checked ? editSplitAmount2El.value : '',
+          paymentStatus: editStatusEl.value,
+          amountPaid: document.getElementById('editAmount').value,
+        }),
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'No se pudo guardar.');
+
+      document.getElementById('editModal').classList.remove('show');
+      mostrarToast('Registro actualizado. El PDF se regeneró con los datos nuevos.', 'ok');
+      await cargarRegistros();
+    } catch(err){
+      errBox.textContent = err.message;
+      errBox.style.display = 'block';
+    } finally {
+      saveBtn.disabled = false;
+      saveBtn.textContent = 'Guardar cambios';
+    }
+  });
+
+  // ---- Limpieza periódica por antigüedad ----
+  document.getElementById('cleanupBtn').addEventListener('click', async () => {
+    const dias = document.getElementById('cleanupDays').value;
+    const confirmado = await pedirConfirmacion(
+      'Eliminar registros antiguos',
+      `¿Eliminar TODOS los registros de más de ${dias} días? Esta acción no se puede deshacer.`
+    );
+    if(!confirmado) return;
+
+    try {
+      const res = await fetch('/api/checkins/cleanup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ olderThanDays: Number(dias) }),
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'No se pudo completar la limpieza.');
+      mostrarToast(`${data.eliminados} registro(s) eliminado(s).`, 'ok');
+      await cargarRegistros();
+    } catch(err){
+      mostrarToast(err.message, 'error');
+    }
+  });
+
+  // ---- Exportar reporte CSV ----
+  document.getElementById('exportBtn').addEventListener('click', () => {
+    window.location.href = '/api/checkins/export.csv?' + obtenerFiltros().toString();
+  });
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    fetch('/api/logout', { method: 'POST' }).finally(() => {
+      window.location.href = '/login.html';
+    });
+  });
+</script>
+</body>
+</html>

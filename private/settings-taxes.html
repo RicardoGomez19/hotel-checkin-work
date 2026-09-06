@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Impuestos del reporte · Configuración</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B2430; --paper:#FAF6EE; --paper-dim:#F1EBDB;
+    --brass:#B8935A; --brass-deep:#8E6E3E; --line:#DCD3C0; --charcoal:#2A2620; --error:#B0463A; --ok:#5C6F4F;
+  }
+  *{box-sizing:border-box;}
+  html{ background:var(--ink); }
+  body{ margin:0; background:var(--ink); font-family:'Inter',sans-serif; color:var(--charcoal); min-height:100vh; min-height:100dvh; padding:32px 16px; }
+  .wrap{ max-width:520px; margin:0 auto; background:var(--paper); border:1px solid rgba(184,147,90,0.35); box-shadow:0 30px 60px -20px rgba(0,0,0,0.5); }
+  nav{ padding:16px 32px; border-bottom:1px solid var(--line); background:var(--paper-dim); }
+  nav a{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(42,38,32,0.55); text-decoration:none; }
+  header{ padding:24px 32px 4px; }
+  h1{ font-family:'Fraunces',serif; font-size:19px; margin:0; color:var(--ink); }
+  p.sub{ margin:6px 0 0; font-size:13px; color:rgba(42,38,32,0.6); line-height:1.5; }
+  .body{ padding:20px 32px 28px; }
+  .field{ display:flex; flex-direction:column; gap:6px; margin-bottom:16px; }
+  label{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--brass-deep); }
+  input{ font-family:'Inter',sans-serif; font-size:14.5px; padding:10px 12px; border:1px solid var(--line); background:#fff; color:var(--charcoal); outline:none; }
+  input:focus{ border-color:var(--brass); box-shadow:0 0 0 3px rgba(184,147,90,0.18); }
+  button{ padding:11px 20px; font-weight:600; font-size:13px; background:var(--ink); color:var(--paper); border:none; cursor:pointer; }
+  .msg{ margin-top:14px; padding:10px 12px; font-size:12.5px; display:none; }
+  .msg.error{ display:block; background:#FBECEA; border:1px solid var(--error); color:var(--error); }
+  .msg.ok{ display:block; background:#EFF3EC; border:1px solid var(--ok); color:var(--ok); }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .example{
+    margin-top:20px; padding:14px 16px; background:var(--paper-dim); border:1px solid var(--line);
+    font-size:12.5px; line-height:1.7; color:rgba(42,38,32,0.75);
+  }
+  .example b{ color:var(--ink); }
+  @media (max-width: 560px){
+    body{ padding:16px 10px; } .wrap{ max-width:100%; }
+    nav{ padding:12px 18px; } header{ padding:18px 18px 4px; } .body{ padding:16px 18px 22px; }
+    .row2{ grid-template-columns:1fr; } button{ width:100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav><a href="/settings.html">← Configuración</a></nav>
+    <header>
+      <h1>Impuestos del reporte</h1>
+      <p class="sub">El reporte CSV calcula el IVA y el impuesto municipal como un porcentaje directo del precio que pagó el huésped (no se resta antes ni se "calcula hacia atrás").</p>
+    </header>
+    <div class="body">
+      <div class="row2">
+        <div class="field">
+          <label for="ivaPercent">IVA (%)</label>
+          <input type="text" id="ivaPercent" inputmode="decimal">
+        </div>
+        <div class="field">
+          <label for="municipalPercent">Impuesto municipal (%)</label>
+          <input type="text" id="municipalPercent" inputmode="decimal">
+        </div>
+      </div>
+      <button id="saveTaxesBtn">Guardar impuestos</button>
+      <div class="msg" id="taxMsg"></div>
+
+      <div class="example" id="exampleBox"></div>
+    </div>
+  </div>
+<script>
+  function actualizarEjemplo(){
+    const iva = Number(document.getElementById('ivaPercent').value) || 0;
+    const municipal = Number(document.getElementById('municipalPercent').value) || 0;
+    const total = 1000;
+    const ivaMonto = total * iva / 100;
+    const municipalMonto = total * municipal / 100;
+    const neto = total - ivaMonto - municipalMonto;
+    document.getElementById('exampleBox').innerHTML = `
+      <b>Ejemplo con un precio de $1,000.00:</b><br>
+      IVA (${iva}%): $${ivaMonto.toFixed(2)}<br>
+      Impuesto municipal (${municipal}%): $${municipalMonto.toFixed(2)}<br>
+      Neto (sin impuestos): $${neto.toFixed(2)}
+    `;
+  }
+
+  fetch('/api/settings/taxes').then(r => r.json()).then(t => {
+    document.getElementById('ivaPercent').value = t.ivaPercent;
+    document.getElementById('municipalPercent').value = t.municipalPercent;
+    actualizarEjemplo();
+  });
+
+  document.getElementById('ivaPercent').addEventListener('input', actualizarEjemplo);
+  document.getElementById('municipalPercent').addEventListener('input', actualizarEjemplo);
+
+  document.getElementById('saveTaxesBtn').addEventListener('click', async () => {
+    const taxMsg = document.getElementById('taxMsg');
+    taxMsg.className = 'msg';
+    try {
+      const res = await fetch('/api/settings/taxes', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ivaPercent: document.getElementById('ivaPercent').value,
+          municipalPercent: document.getElementById('municipalPercent').value,
+        }),
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'No se pudo guardar.');
+      taxMsg.textContent = 'Impuestos actualizados.';
+      taxMsg.className = 'msg ok';
+    } catch(err){
+      taxMsg.textContent = err.message;
+      taxMsg.className = 'msg error';
+    }
+  });
+</script>
+</body>
+</html>

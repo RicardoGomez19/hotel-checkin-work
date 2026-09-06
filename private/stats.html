@@ -1,0 +1,277 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gráficas · Hotel Casa Marfil</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<style>
+  :root{
+    --ink:#1B2430; --paper:#FAF6EE; --paper-dim:#F1EBDB;
+    --brass:#B8935A; --brass-deep:#8E6E3E; --line:#DCD3C0; --charcoal:#2A2620; --error:#B0463A; --ok:#5C6F4F; --warn:#B8863A;
+  }
+  *{box-sizing:border-box;}
+  html{ background:var(--ink); }
+  body{ margin:0; background:var(--ink); font-family:'Inter',sans-serif; color:var(--charcoal); min-height:100vh; min-height:100dvh; padding:32px 16px; }
+  .wrap{ max-width:900px; width:96%; margin:0 auto; background:var(--paper); border:1px solid rgba(184,147,90,0.35); box-shadow:0 30px 60px -20px rgba(0,0,0,0.5); }
+  /* Mismos escalones de ancho que el resto del panel — celular / tablet /
+     laptop / escritorio — para aprovechar la pantalla disponible en vez de
+     dejar franjas oscuras en monitores grandes. */
+  @media (min-width: 769px) and (max-width: 1023px){ .wrap{ width:94%; max-width:960px; } }
+  @media (min-width: 1024px) and (max-width: 1439px){ .wrap{ width:93%; max-width:1320px; } }
+  @media (min-width: 1440px){ .wrap{ width:90%; max-width:1760px; } }
+  nav{ display:flex; gap:18px; padding:14px 32px; border-bottom:1px solid var(--line); background:var(--paper-dim); align-items:center; }
+  nav a{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(42,38,32,0.55); text-decoration:none; }
+  nav a.active{ color:var(--brass-deep); font-weight:600; }
+  header{ padding:22px 32px 16px; border-bottom:1px solid var(--line); }
+  h1{ font-family:'Fraunces',serif; font-size:22px; margin:0; color:var(--ink); }
+  p.sub{ margin:6px 0 0; font-size:13px; color:rgba(42,38,32,0.6); }
+  .grid{ display:grid; grid-template-columns:1fr 1fr; gap:0; }
+  .card{ padding:24px 28px; border-bottom:1px solid var(--line); border-right:1px solid var(--line); }
+  .card:nth-child(even){ border-right:none; }
+  .card.full{ grid-column:1 / -1; border-right:none; }
+  .card h2{ font-family:'Fraunces',serif; font-size:15px; margin:0 0 14px; color:var(--ink); }
+  .card-head{ display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin-bottom:14px; }
+  .card-head h2{ margin:0; }
+  .date-controls{ display:flex; gap:8px; flex-wrap:wrap; }
+  .date-controls select, .date-controls input[type=month]{
+    font-family:'Inter',sans-serif; font-size:12.5px; padding:6px 8px; border:1px solid var(--line); background:#fff; color:var(--charcoal);
+  }
+  .chart-wrap{ position:relative; height:260px; width:100%; }
+  .empty-hint{ font-size:12.5px; color:rgba(42,38,32,0.5); padding:20px 0; text-align:center; }
+  @media (max-width: 768px){
+    body{ padding:16px 8px; } .wrap{ max-width:100%; width:100%; }
+    nav{ padding:12px 18px; flex-wrap:wrap; row-gap:8px; }
+    header{ padding:18px 18px 14px; } h1{ font-size:19px; }
+    .grid{ grid-template-columns:1fr; }
+    .card{ border-right:none; padding:20px 18px; }
+    .chart-wrap{ height:220px; }
+    .card-head{ flex-direction:column; align-items:flex-start; }
+    .date-controls{ width:100%; }
+    .date-controls select, .date-controls input[type=month]{ flex:1; min-width:110px; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav>
+      <a href="/registros.html">Registros</a>
+      <a href="/stats.html" class="active">Gráficas</a>
+      <a href="/settings.html">Configuración</a>
+      <button id="logoutBtn" style="margin-left:auto; font-family:'IBM Plex Mono',monospace; font-size:11px; padding:6px 12px; background:transparent; border:1px solid var(--line); color:var(--brass-deep); cursor:pointer;">Cerrar sesión</button>
+    </nav>
+    <header>
+      <h1>Gráficas</h1>
+      <p class="sub">Resumen visual de todos los check-ins registrados.</p>
+    </header>
+    <div class="grid">
+      <div class="card full">
+        <div class="card-head">
+          <h2>Check-ins por fecha de entrada</h2>
+          <div class="date-controls">
+            <select id="dateViewMode">
+              <option value="days30">Últimos 30 días</option>
+              <option value="month">Por mes</option>
+              <option value="year">Por año</option>
+            </select>
+            <input type="month" id="dateMonthPicker" style="display:none;">
+            <select id="dateYearPicker" style="display:none;"></select>
+          </div>
+        </div>
+        <div class="chart-wrap"><canvas id="chartDates"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Estado de pago</h2>
+        <div class="chart-wrap"><canvas id="chartPayment"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Tipos de pago</h2>
+        <div class="chart-wrap"><canvas id="chartPaymentType"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Nacionalidad</h2>
+        <div class="chart-wrap"><canvas id="chartCountry"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Tipo de habitación</h2>
+        <div class="chart-wrap"><canvas id="chartRoom"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Plataforma de reservación</h2>
+        <div class="chart-wrap"><canvas id="chartPlatform"></canvas></div>
+      </div>
+    </div>
+  </div>
+
+<script>
+  const PALETA = ['#8E6E3E', '#B8935A', '#5C6F4F', '#B0463A', '#2E3A4D', '#B8863A', '#7C8B7A', '#9C8060'];
+  const COLOR_PAGO = { Pagado: '#5C6F4F', Pendiente: '#B0463A', Anticipo: '#B8863A' };
+  const COLOR_TIPO_PAGO = {
+    'Efectivo': '#5C6F4F',
+    'Tarjeta débito': '#8E6E3E',
+    'Tarjeta crédito': '#B8935A',
+    'Prepago (plataforma)': '#2E3A4D',
+  };
+
+  Chart.defaults.font.family = "'Inter', sans-serif";
+  Chart.defaults.color = '#2A2620';
+
+  // "responsive: true" + "maintainAspectRatio: false" hace que cada gráfica
+  // se ajuste exactamente al tamaño de su contenedor (.chart-wrap) en vez de
+  // crecer sin límite y salirse de la tarjeta — así se ve bien en cualquier
+  // tamaño de pantalla, incluyendo al cambiar de orientación en el celular.
+  //
+  // Todas las gráficas (no solo la de fechas) se vuelven a pedir y a
+  // redibujar cuando cambia el selector de periodo — por eso cada una
+  // guarda su instancia de Chart.js en "instancias" para poder destruirla
+  // antes de dibujar la nueva (Chart.js no permite dos gráficos activos a
+  // la vez sobre el mismo <canvas>), y restaura el <canvas> si una carga
+  // anterior lo había reemplazado por el mensaje de "sin datos".
+  const instancias = {};
+
+  function graficaBarra(canvasId, labels, data, colores){
+    const wrap = document.getElementById(canvasId).closest('.chart-wrap');
+    if(instancias[canvasId]){ instancias[canvasId].destroy(); instancias[canvasId] = null; }
+    if(labels.length === 0){
+      wrap.innerHTML = '<p class="empty-hint">Todavía no hay datos suficientes.</p>';
+      return;
+    }
+    if(!document.getElementById(canvasId)) wrap.innerHTML = `<canvas id="${canvasId}"></canvas>`;
+    instancias[canvasId] = new Chart(document.getElementById(canvasId), {
+      type: 'bar',
+      data: { labels, datasets: [{ data, backgroundColor: colores || PALETA }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
+  function graficaDona(canvasId, labels, data, colores){
+    const wrap = document.getElementById(canvasId).closest('.chart-wrap');
+    if(instancias[canvasId]){ instancias[canvasId].destroy(); instancias[canvasId] = null; }
+    if(labels.length === 0){
+      wrap.innerHTML = '<p class="empty-hint">Todavía no hay datos suficientes.</p>';
+      return;
+    }
+    if(!document.getElementById(canvasId)) wrap.innerHTML = `<canvas id="${canvasId}"></canvas>`;
+    instancias[canvasId] = new Chart(document.getElementById(canvasId), {
+      type: 'doughnut',
+      data: { labels, datasets: [{ data, backgroundColor: colores || PALETA }] },
+      options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { position: 'bottom' } } },
+    });
+  }
+
+  // ---- Check-ins por fecha de entrada: última/mes/año, cambiable en vivo ----
+  // A diferencia de las demás gráficas (que se pintan una sola vez), esta se
+  // vuelve a pedir al servidor y se vuelve a dibujar cada vez que cambia el
+  // selector — por eso necesita su propia lógica que sepa destruir el
+  // gráfico anterior antes de dibujar el nuevo (Chart.js no deja dos
+  // gráficos activos sobre el mismo <canvas> al mismo tiempo).
+  let chartDatesInstance = null;
+
+  function renderizarGraficaFechas(labels, data, mensajeVacio){
+    const wrap = document.getElementById('chartDates').closest('.chart-wrap');
+    if(chartDatesInstance){ chartDatesInstance.destroy(); chartDatesInstance = null; }
+    if(labels.length === 0){
+      wrap.innerHTML = `<p class="empty-hint">${mensajeVacio}</p>`;
+      return;
+    }
+    if(!document.getElementById('chartDates')){
+      wrap.innerHTML = '<canvas id="chartDates"></canvas>';
+    }
+    chartDatesInstance = new Chart(document.getElementById('chartDates'), {
+      type: 'line',
+      data: { labels, datasets: [{ data, borderColor: '#8E6E3E', backgroundColor: 'rgba(184,147,90,0.15)', fill: true, tension: 0.25 }] },
+      options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: { y: { beginAtZero: true, ticks: { precision: 0 } } },
+      },
+    });
+  }
+
+  function obtenerParametrosPeriodo(){
+    const modo = document.getElementById('dateViewMode').value;
+    const params = new URLSearchParams({ view: modo });
+    if(modo === 'month') params.set('month', document.getElementById('dateMonthPicker').value);
+    if(modo === 'year') params.set('year', document.getElementById('dateYearPicker').value);
+    return { modo, params };
+  }
+
+  function cargarGraficaFechas(){
+    const { modo, params } = obtenerParametrosPeriodo();
+
+    fetch('/api/stats/checkins?' + params.toString())
+      .then(r => {
+        if(r.status === 401){ window.location.href = '/login.html'; throw new Error('no autenticado'); }
+        return r.json();
+      })
+      .then(datos => {
+        const mensajeVacio = modo === 'month' ? 'No hay check-ins con entrada ese mes.'
+          : modo === 'year' ? 'No hay check-ins con entrada ese año.'
+          : 'Todavía no hay check-ins en los últimos 30 días.';
+        renderizarGraficaFechas(datos.map(d => d.label), datos.map(d => d.count), mensajeVacio);
+      });
+  }
+
+  function cargarStatsGenerales(){
+    const { params } = obtenerParametrosPeriodo();
+    fetch('/api/stats?' + params.toString())
+      .then(r => {
+        if(r.status === 401){ window.location.href = '/login.html'; throw new Error('no autenticado'); }
+        return r.json();
+      })
+      .then(stats => {
+        graficaDona(
+          'chartPayment',
+          stats.byPaymentStatus.map(d => d.label || 'Sin dato'),
+          stats.byPaymentStatus.map(d => d.count),
+          stats.byPaymentStatus.map(d => COLOR_PAGO[d.label] || '#8a8071')
+        );
+
+        graficaDona(
+          'chartPaymentType',
+          stats.byPaymentType.map(d => d.label || 'Sin dato'),
+          stats.byPaymentType.map(d => d.count),
+          stats.byPaymentType.map(d => COLOR_TIPO_PAGO[d.label] || '#8a8071')
+        );
+
+        graficaBarra('chartCountry', stats.byCountry.map(d => d.label || 'Sin dato'), stats.byCountry.map(d => d.count));
+        graficaBarra('chartRoom', stats.byRoomType.map(d => d.label || 'Sin dato'), stats.byRoomType.map(d => d.count));
+        graficaBarra('chartPlatform', stats.byPlatform.map(d => d.label || 'Sin dato'), stats.byPlatform.map(d => d.count));
+      });
+  }
+
+  function actualizarTodasLasGraficas(){
+    cargarGraficaFechas();
+    cargarStatsGenerales();
+  }
+
+  // Selector de año: se llena con el año actual y los 5 anteriores — de
+  // sobra para cualquier hotel que use este sistema desde hace poco.
+  const yearPicker = document.getElementById('dateYearPicker');
+  const anioActual = new Date().getFullYear();
+  for(let y = anioActual; y >= anioActual - 5; y--){
+    yearPicker.appendChild(new Option(y, y));
+  }
+  document.getElementById('dateMonthPicker').value = new Date().toLocaleDateString('en-CA').slice(0, 7);
+
+  document.getElementById('dateViewMode').addEventListener('change', (e) => {
+    document.getElementById('dateMonthPicker').style.display = e.target.value === 'month' ? 'inline-block' : 'none';
+    document.getElementById('dateYearPicker').style.display = e.target.value === 'year' ? 'inline-block' : 'none';
+    actualizarTodasLasGraficas();
+  });
+  document.getElementById('dateMonthPicker').addEventListener('change', actualizarTodasLasGraficas);
+  document.getElementById('dateYearPicker').addEventListener('change', actualizarTodasLasGraficas);
+
+  actualizarTodasLasGraficas();
+
+  document.getElementById('logoutBtn').addEventListener('click', () => {
+    fetch('/api/logout', { method: 'POST' }).finally(() => { window.location.href = '/login.html'; });
+  });
+</script>
+</body>
+</html>

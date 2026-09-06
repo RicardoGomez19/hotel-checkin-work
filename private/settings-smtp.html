@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Correo saliente · Configuración</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B2430; --paper:#FAF6EE; --paper-dim:#F1EBDB;
+    --brass:#B8935A; --brass-deep:#8E6E3E; --line:#DCD3C0; --charcoal:#2A2620; --error:#B0463A; --ok:#5C6F4F;
+  }
+  *{box-sizing:border-box;}
+  html{ background:var(--ink); }
+  body{ margin:0; background:var(--ink); font-family:'Inter',sans-serif; color:var(--charcoal); min-height:100vh; min-height:100dvh; padding:32px 16px; }
+  .wrap{ max-width:560px; margin:0 auto; background:var(--paper); border:1px solid rgba(184,147,90,0.35); box-shadow:0 30px 60px -20px rgba(0,0,0,0.5); }
+  nav{ padding:16px 32px; border-bottom:1px solid var(--line); background:var(--paper-dim); }
+  nav a{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(42,38,32,0.55); text-decoration:none; }
+  header{ padding:24px 32px 4px; }
+  h1{ font-family:'Fraunces',serif; font-size:19px; margin:0; color:var(--ink); }
+  p.sub{ margin:6px 0 0; font-size:13px; color:rgba(42,38,32,0.6); line-height:1.5; }
+  .body{ padding:20px 32px 28px; }
+  .field{ display:flex; flex-direction:column; gap:6px; margin-bottom:16px; }
+  label{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--brass-deep); }
+  input, select{ font-family:'Inter',sans-serif; font-size:14.5px; padding:10px 12px; border:1px solid var(--line); background:#fff; color:var(--charcoal); outline:none; }
+  input:focus, select:focus{ border-color:var(--brass); box-shadow:0 0 0 3px rgba(184,147,90,0.18); }
+  .hint{ font-size:11.5px; color:rgba(42,38,32,0.5); margin-top:-2px; }
+  hr{ border:none; border-top:1px dashed var(--line); margin:20px 0; }
+  button{ padding:11px 20px; font-weight:600; font-size:13px; background:var(--ink); color:var(--paper); border:none; cursor:pointer; }
+  .msg{ margin-top:14px; padding:10px 12px; font-size:12.5px; display:none; }
+  .msg.error{ display:block; background:#FBECEA; border:1px solid var(--error); color:var(--error); }
+  .msg.ok{ display:block; background:#EFF3EC; border:1px solid var(--ok); color:var(--ok); }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  @media (max-width: 560px){
+    body{ padding:16px 10px; } .wrap{ max-width:100%; }
+    nav{ padding:12px 18px; } header{ padding:18px 18px 4px; } .body{ padding:16px 18px 22px; }
+    .row2{ grid-template-columns:1fr; } button{ width:100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav><a href="/settings.html">← Configuración</a></nav>
+    <header>
+      <h1>Correo saliente</h1>
+      <p class="sub">Configura esto una vez para poder mandarle su PDF al huésped por correo desde el panel de registros. Si usas Gmail/Outlook, necesitas una "contraseña de aplicación", no tu contraseña normal.</p>
+    </header>
+    <div class="body">
+      <div class="field">
+        <label for="smtpHost">Servidor SMTP</label>
+        <input type="text" id="smtpHost" placeholder="Ej. smtp.gmail.com">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="smtpPort">Puerto</label>
+          <input type="text" id="smtpPort" placeholder="587" inputmode="numeric">
+        </div>
+        <div class="field">
+          <label for="smtpSecure">Conexión segura (SSL)</label>
+          <select id="smtpSecure">
+            <option value="false">No (recomendado con puerto 587)</option>
+            <option value="true">Sí (puerto 465)</option>
+          </select>
+        </div>
+      </div>
+      <div class="field">
+        <label for="smtpUser">Usuario / correo de acceso</label>
+        <input type="text" id="smtpUser" placeholder="reservaciones@tuhotel.com">
+      </div>
+      <div class="field">
+        <label for="smtpPass">Contraseña</label>
+        <input type="password" id="smtpPass" placeholder="Déjalo vacío para no cambiarla" autocomplete="new-password">
+        <span class="hint" id="smtpPassHint"></span>
+      </div>
+      <hr>
+      <div class="row2">
+        <div class="field">
+          <label for="smtpFromName">Nombre del remitente</label>
+          <input type="text" id="smtpFromName" placeholder="Hotel Casa Marfil">
+        </div>
+        <div class="field">
+          <label for="smtpFromEmail">Correo del remitente</label>
+          <input type="email" id="smtpFromEmail" placeholder="reservaciones@tuhotel.com">
+        </div>
+      </div>
+      <button id="saveSmtpBtn">Guardar correo saliente</button>
+      <div class="msg" id="smtpMsg"></div>
+    </div>
+  </div>
+<script>
+  fetch('/api/settings/smtp').then(r => r.json()).then(c => {
+    document.getElementById('smtpHost').value = c.smtpHost || '';
+    document.getElementById('smtpPort').value = c.smtpPort || '587';
+    document.getElementById('smtpSecure').value = c.smtpSecure === 'true' ? 'true' : 'false';
+    document.getElementById('smtpUser').value = c.smtpUser || '';
+    document.getElementById('smtpFromName').value = c.smtpFromName || '';
+    document.getElementById('smtpFromEmail').value = c.smtpFromEmail || '';
+    document.getElementById('smtpPassHint').textContent = c.hasPassword
+      ? 'Ya hay una contraseña guardada — déjalo vacío para conservarla.'
+      : 'Todavía no has configurado una contraseña.';
+  });
+
+  document.getElementById('saveSmtpBtn').addEventListener('click', async () => {
+    const smtpMsg = document.getElementById('smtpMsg');
+    smtpMsg.className = 'msg';
+    try {
+      const res = await fetch('/api/settings/smtp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          smtpHost: document.getElementById('smtpHost').value.trim(),
+          smtpPort: document.getElementById('smtpPort').value.trim(),
+          smtpSecure: document.getElementById('smtpSecure').value === 'true',
+          smtpUser: document.getElementById('smtpUser').value.trim(),
+          smtpPass: document.getElementById('smtpPass').value,
+          smtpFromName: document.getElementById('smtpFromName').value.trim(),
+          smtpFromEmail: document.getElementById('smtpFromEmail').value.trim(),
+        }),
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'No se pudo guardar.');
+      document.getElementById('smtpPass').value = '';
+      smtpMsg.textContent = 'Correo saliente actualizado.';
+      smtpMsg.className = 'msg ok';
+    } catch(err){
+      smtpMsg.textContent = err.message;
+      smtpMsg.className = 'msg error';
+    }
+  });
+</script>
+</body>
+</html>

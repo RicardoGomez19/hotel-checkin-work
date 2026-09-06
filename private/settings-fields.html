@@ -1,0 +1,150 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Preguntas del formulario · Configuración</title>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:wght@600&family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink:#1B2430; --paper:#FAF6EE; --paper-dim:#F1EBDB;
+    --brass:#B8935A; --brass-deep:#8E6E3E; --line:#DCD3C0; --charcoal:#2A2620; --error:#B0463A;
+  }
+  *{box-sizing:border-box;}
+  html{ background:var(--ink); }
+  body{ margin:0; background:var(--ink); font-family:'Inter',sans-serif; color:var(--charcoal); min-height:100vh; min-height:100dvh; padding:32px 16px; }
+  .wrap{ max-width:560px; margin:0 auto; background:var(--paper); border:1px solid rgba(184,147,90,0.35); box-shadow:0 30px 60px -20px rgba(0,0,0,0.5); }
+  nav{ padding:16px 32px; border-bottom:1px solid var(--line); background:var(--paper-dim); }
+  nav a{ font-family:'IBM Plex Mono',monospace; font-size:11.5px; text-transform:uppercase; letter-spacing:0.05em; color:rgba(42,38,32,0.55); text-decoration:none; }
+  header{ padding:24px 32px 4px; }
+  h1{ font-family:'Fraunces',serif; font-size:19px; margin:0; color:var(--ink); }
+  p.sub{ margin:6px 0 0; font-size:13px; color:rgba(42,38,32,0.6); }
+  .body{ padding:20px 32px 28px; }
+  .field{ display:flex; flex-direction:column; gap:6px; margin-bottom:16px; }
+  label{ font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.04em; color:var(--brass-deep); }
+  input, select, textarea{ font-family:'Inter',sans-serif; font-size:14.5px; padding:10px 12px; border:1px solid var(--line); background:#fff; color:var(--charcoal); outline:none; }
+  input:focus, select:focus, textarea:focus{ border-color:var(--brass); box-shadow:0 0 0 3px rgba(184,147,90,0.18); }
+  hr{ border:none; border-top:1px dashed var(--line); margin:20px 0; }
+  button{ padding:11px 20px; font-weight:600; font-size:13px; background:var(--ink); color:var(--paper); border:none; cursor:pointer; }
+  .msg{ margin-top:14px; padding:10px 12px; font-size:12.5px; display:none; }
+  .msg.error{ display:block; background:#FBECEA; border:1px solid var(--error); color:var(--error); }
+  .row2{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .field-item{ display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px dashed var(--line); font-size:13px; }
+  .field-item:last-child{ border-bottom:none; }
+  .field-item .tag{ font-family:'IBM Plex Mono',monospace; font-size:10px; text-transform:uppercase; color:var(--brass-deep); background:var(--paper-dim); padding:2px 6px; margin-left:8px; }
+  .del-field{ color:var(--error); font-size:12px; font-weight:600; background:none; border:none; cursor:pointer; padding:4px 8px; }
+  .empty-hint{ font-size:12.5px; color:rgba(42,38,32,0.5); padding:8px 0; }
+  @media (max-width: 560px){
+    body{ padding:16px 10px; } .wrap{ max-width:100%; }
+    nav{ padding:12px 18px; } header{ padding:18px 18px 4px; } .body{ padding:16px 18px 22px; }
+    .row2{ grid-template-columns:1fr; } button{ width:100%; }
+  }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <nav><a href="/settings.html">← Configuración</a></nav>
+    <header>
+      <h1>Preguntas del formulario</h1>
+      <p class="sub">Agrega preguntas extra que verá el huésped al hacer check-in, además de las fijas.</p>
+    </header>
+    <div class="body">
+      <div id="fieldsList"><p class="empty-hint">Cargando…</p></div>
+      <hr>
+      <div class="field">
+        <label for="newFieldLabel">Texto de la pregunta</label>
+        <input type="text" id="newFieldLabel" placeholder="Ej. Motivo del viaje">
+      </div>
+      <div class="row2">
+        <div class="field">
+          <label for="newFieldType">Tipo de respuesta</label>
+          <select id="newFieldType">
+            <option value="text">Texto libre</option>
+            <option value="numbers">Solo números</option>
+            <option value="letters">Solo letras</option>
+            <option value="email">Correo electrónico</option>
+            <option value="select">Opción múltiple</option>
+          </select>
+        </div>
+        <div class="field">
+          <label for="newFieldRequired">¿Es obligatoria?</label>
+          <select id="newFieldRequired">
+            <option value="0">No</option>
+            <option value="1">Sí</option>
+          </select>
+        </div>
+      </div>
+      <div class="field" id="optionsField" style="display:none;">
+        <label for="newFieldOptions">Opciones (una por línea)</label>
+        <textarea id="newFieldOptions" rows="3" placeholder="Turismo&#10;Negocios&#10;Otro"></textarea>
+      </div>
+      <button id="addFieldBtn">+ Agregar pregunta</button>
+      <div class="msg" id="fieldMsg"></div>
+    </div>
+  </div>
+<script>
+  const TIPO_LABEL = { text: 'Texto libre', numbers: 'Solo números', letters: 'Solo letras', email: 'Correo', select: 'Opción múltiple' };
+
+  function cargarPreguntas(){
+    fetch('/api/fields')
+      .then(r => r.json())
+      .then(campos => {
+        const cont = document.getElementById('fieldsList');
+        if(campos.length === 0){
+          cont.innerHTML = '<p class="empty-hint">Todavía no agregas ninguna pregunta extra.</p>';
+          return;
+        }
+        cont.innerHTML = '';
+        campos.forEach(campo => {
+          const div = document.createElement('div');
+          div.className = 'field-item';
+          div.innerHTML = `
+            <span>${campo.label}
+              <span class="tag">${TIPO_LABEL[campo.type] || campo.type}</span>
+              ${campo.required ? '<span class="tag">Obligatoria</span>' : ''}
+            </span>
+            <button class="del-field" data-id="${campo.id}" data-label="${campo.label}">Eliminar</button>
+          `;
+          cont.appendChild(div);
+        });
+      });
+  }
+  cargarPreguntas();
+
+  document.getElementById('newFieldType').addEventListener('change', (e) => {
+    document.getElementById('optionsField').style.display = e.target.value === 'select' ? 'block' : 'none';
+  });
+
+  document.getElementById('fieldsList').addEventListener('click', async (e) => {
+    if(!e.target.classList.contains('del-field')) return;
+    const id = e.target.dataset.id;
+    await fetch(`/api/settings/fields/${id}`, { method: 'DELETE' });
+    cargarPreguntas();
+  });
+
+  document.getElementById('addFieldBtn').addEventListener('click', async () => {
+    const fieldMsg = document.getElementById('fieldMsg');
+    fieldMsg.className = 'msg';
+    const label = document.getElementById('newFieldLabel').value.trim();
+    const type = document.getElementById('newFieldType').value;
+    const required = document.getElementById('newFieldRequired').value === '1';
+    const options = document.getElementById('newFieldOptions').value.split('\n').map(o => o.trim()).filter(Boolean);
+    try {
+      const res = await fetch('/api/settings/fields', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ label, type, required, options }),
+      });
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'No se pudo agregar la pregunta.');
+      document.getElementById('newFieldLabel').value = '';
+      document.getElementById('newFieldOptions').value = '';
+      cargarPreguntas();
+    } catch(err){
+      fieldMsg.textContent = err.message;
+      fieldMsg.className = 'msg error';
+    }
+  });
+</script>
+</body>
+</html>

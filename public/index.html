@@ -1,0 +1,1441 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Registro de huésped · Check-in digital</title>
+<link rel="manifest" href="/manifest.json">
+<meta name="theme-color" content="#1B2430">
+<link rel="apple-touch-icon" href="/icons/apple-touch-icon.png">
+<link rel="icon" href="/icons/favicon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Check-in">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600;9..144,700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --ink: #1B2430;
+    --ink-soft: #2E3A4D;
+    --paper: #FAF6EE;
+    --paper-dim: #F1EBDB;
+    --brass: #B8935A;
+    --brass-deep: #8E6E3E;
+    --charcoal: #2A2620;
+    --line: #DCD3C0;
+    --error: #B0463A;
+    --ok: #5C6F4F;
+    --radius: 2px;
+  }
+  *{box-sizing:border-box;}
+  html,body{margin:0;padding:0;}
+  html{ background: var(--ink); }
+  body{
+    background: var(--ink);
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(184,147,90,0.10), transparent 45%),
+      radial-gradient(circle at 85% 90%, rgba(184,147,90,0.06), transparent 50%);
+    min-height:100vh;
+    min-height:100dvh;
+    font-family:'Inter', sans-serif;
+    color: var(--charcoal);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding: 32px 16px;
+  }
+  .kiosk{
+    width:100%;
+    max-width:640px;
+    background: var(--paper);
+    border: 1px solid rgba(184,147,90,0.35);
+    box-shadow: 0 40px 80px -30px rgba(0,0,0,0.6), 0 0 0 1px rgba(0,0,0,0.2);
+    position:relative;
+    overflow:hidden;
+  }
+  .kiosk::before{
+    content:"";
+    position:absolute; top:0; left:0; right:0; height:4px;
+    background: linear-gradient(90deg, var(--brass-deep), var(--brass), var(--brass-deep));
+  }
+  header.head{
+    padding: 28px 36px 22px;
+    border-bottom: 1px solid var(--line);
+    display:flex; align-items:baseline; justify-content:space-between; gap: 12px;
+  }
+  .brand{ display:flex; flex-direction:column; gap:2px; }
+  .brand .eyebrow{
+    font-family:'IBM Plex Mono', monospace; font-size:10.5px;
+    letter-spacing:0.16em; text-transform:uppercase; color: var(--brass-deep);
+  }
+  .brand h1{
+    font-family:'Fraunces', serif; font-size: 26px; font-weight:600;
+    margin:0; color: var(--ink); letter-spacing:-0.01em;
+  }
+  .folio{
+    text-align:right; font-family:'IBM Plex Mono', monospace;
+    font-size:11px; color: var(--ink-soft); opacity:0.65; line-height:1.5;
+  }
+  .ledger-progress{ display:flex; padding: 0 36px; background: var(--paper-dim); border-bottom: 1px solid var(--line); }
+  .lp-step{
+    flex:1; padding: 12px 4px; text-align:center; font-family:'IBM Plex Mono', monospace;
+    font-size:10px; letter-spacing:0.06em; text-transform:uppercase;
+    color: rgba(42,38,32,0.35); border-bottom: 2px solid transparent;
+    transition: color .3s ease, border-color .3s ease;
+  }
+  .lp-step.active{ color: var(--ink); border-bottom-color: var(--brass); }
+  .lp-step.done{ color: var(--ok); }
+  main{ padding: 32px 36px 36px; }
+  .step{ display:none; animation: fadeUp .35s ease; }
+  .step.active{ display:block; }
+  @keyframes fadeUp{ from{ opacity:0; transform: translateY(6px); } to{ opacity:1; transform: translateY(0); } }
+  .step-title{ font-family:'Fraunces', serif; font-size: 20px; font-weight:600; margin: 0 0 4px; color: var(--ink); }
+  .step-sub{ font-size: 13.5px; color: rgba(42,38,32,0.62); margin: 0 0 24px; line-height:1.5; }
+  .grid{ display:grid; grid-template-columns: 1fr 1fr; gap: 16px 14px; }
+  .field{ display:flex; flex-direction:column; gap:6px; }
+  .field.full{ grid-column: 1 / -1; }
+  .row2-split{ display:flex; flex-direction:column; gap:14px; }
+  .split-toggle-field{ background:var(--paper-dim); padding:10px 12px; border-radius:var(--radius); margin-top:-4px; }
+  #splitPaymentFields input[readonly]{ background:var(--paper-dim); color:rgba(42,38,32,0.7); }
+  label{ font-size:11px; font-weight:600; letter-spacing:0.04em; text-transform:uppercase; color: var(--brass-deep); }
+  input[type=text], input[type=tel], input[type=email], input[type=date], select{
+    -webkit-appearance: none;
+    appearance: none;
+    font-family:'Inter', sans-serif; font-size:15px; padding: 11px 12px;
+    border: 1px solid var(--line); background: #fff; color: var(--charcoal);
+    border-radius: var(--radius); outline: none;
+    transition: border-color .15s ease, box-shadow .15s ease;
+  }
+  /* Safari/Chrome dibujan el ícono del calendario con su propio tamaño y
+     color; esto lo deja del mismo tono que el resto de los íconos del
+     formulario en vez del gris genérico del navegador. */
+  input[type=date]::-webkit-calendar-picker-indicator{
+    filter: sepia(60%) saturate(250%) hue-rotate(0deg) opacity(0.65);
+    cursor: pointer;
+  }
+  input::placeholder{ color: rgba(42,38,32,0.35); }
+  input:focus, select:focus{ border-color: var(--brass); box-shadow: 0 0 0 3px rgba(184,147,90,0.18); }
+  input[readonly]{ background: var(--paper-dim); color: rgba(42,38,32,0.7); cursor:default; }
+  input[readonly]:focus{ box-shadow:none; border-color: var(--line); }
+  /* El navegador (sobre todo Chrome) le pone su propio fondo amarillo/azul a
+     los campos que autocompleta o reconoce como "correo" — por eso el campo
+     de correo se veía distinto al resto en cuanto el navegador lo rellenaba
+     o lo sugería. Esto lo fuerza a usar los mismos colores que definimos. */
+  input:-webkit-autofill,
+  input:-webkit-autofill:hover,
+  input:-webkit-autofill:focus{
+    -webkit-text-fill-color: var(--charcoal);
+    -webkit-box-shadow: 0 0 0 1000px #fff inset;
+    box-shadow: 0 0 0 1000px #fff inset;
+    border: 1px solid var(--line);
+    transition: background-color 999999s ease-in-out 0s;
+  }
+  .field small.err{ display:none; font-size:11.5px; color: var(--error); }
+  .field.invalid small.err{ display:block; }
+  .field.invalid input{ border-color: var(--error); }
+  .consent{
+    margin-top: 22px; display:flex; gap:10px; align-items:flex-start;
+    padding: 14px 14px; background: var(--paper-dim); border: 1px solid var(--line);
+  }
+  .consent input{ margin-top:3px; accent-color: var(--brass-deep); width:16px; height:16px; flex-shrink:0; }
+  .consent p{ margin:0; font-size:12.5px; line-height:1.55; color: rgba(42,38,32,0.75); }
+  .actions{ margin-top: 28px; display:flex; justify-content:space-between; gap: 12px; align-items:center; }
+  button{
+    font-family:'Inter', sans-serif; font-weight:600; font-size: 13.5px; letter-spacing:0.01em;
+    padding: 12px 22px; border-radius: var(--radius); border: 1px solid transparent;
+    cursor:pointer; transition: transform .12s ease, background .15s ease, border-color .15s ease;
+  }
+  button:active{ transform: translateY(1px); }
+  button:disabled{ opacity:0.4; cursor:not-allowed; }
+  .btn-primary{ background: var(--ink); color: var(--paper); margin-left:auto; }
+  .btn-primary:hover:not(:disabled){ background: var(--ink-soft); }
+  .btn-ghost{ background: transparent; color: var(--ink-soft); border-color: var(--line); }
+  .btn-ghost:hover{ border-color: var(--brass); color: var(--ink); }
+  .btn-line{ background:transparent; color: var(--brass-deep); border: 1px solid var(--brass); font-size:12px; padding: 8px 14px; }
+  .btn-line:hover{ background: rgba(184,147,90,0.1); }
+
+  /* Firma */
+  .sig-frame{
+    border: 1px solid var(--line);
+    background: repeating-linear-gradient(180deg, transparent, transparent 27px, rgba(184,147,90,0.15) 28px);
+    background-color:#fff; position:relative; touch-action:none;
+  }
+  canvas#sigPad{ display:block; width:100%; height: 220px; cursor: crosshair; touch-action:none; }
+  .sig-baseline-label{
+    position:absolute; bottom: 6px; left: 12px; font-family:'IBM Plex Mono', monospace;
+    font-size: 10px; color: rgba(42,38,32,0.3); pointer-events:none;
+  }
+  .sig-toolbar{ display:flex; justify-content:space-between; align-items:center; margin-top:10px; }
+  .sig-hint{ font-size:12px; color: rgba(42,38,32,0.55); }
+
+  /* Foto de identificación */
+  .id-capture-options{
+    display:flex;
+    gap: 14px;
+    flex-wrap:wrap;
+  }
+  .id-option{
+    flex:1;
+    min-width:180px;
+    border: 2px dashed var(--line);
+    background: #fff;
+    padding: 26px 16px;
+    text-align:center;
+    cursor:pointer;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    gap:6px;
+    transition: border-color .15s ease, background .15s ease;
+  }
+  .id-option:hover{ border-color: var(--brass); background: var(--paper-dim); }
+  .id-option input[type=file]{ display:none; }
+  .id-option .icon{ font-size: 30px; opacity:0.6; }
+  .id-option .label{ font-size:13px; font-weight:600; color: var(--ink); }
+  .id-option .sub{ font-size:11px; color: rgba(42,38,32,0.5); }
+  .id-preview-box{
+    display:none;
+    border: 1px solid var(--line);
+    background:#fff;
+    padding: 14px;
+    text-align:center;
+  }
+  .id-preview-box img{ max-width:100%; max-height:280px; display:block; margin:0 auto; }
+  .id-retake{ margin-top:12px; }
+
+  .terms-box{
+    margin-top:18px; border: 1px solid var(--line); background:#fff; padding: 14px 16px;
+    max-height: 110px; overflow-y:auto; font-size:12px; line-height:1.6; color: rgba(42,38,32,0.7);
+  }
+  .terms-box h4{ margin:0 0 6px; font-size:11px; text-transform:uppercase; letter-spacing:0.06em; color: var(--ink); }
+  .stamp-card{ border: 1px solid var(--line); background: #fff; padding: 24px; position:relative; overflow:hidden; }
+  .stamp-card::after{
+    content:"REGISTRADO"; position:absolute; top: 18px; right: -34px; transform: rotate(28deg);
+    font-family:'IBM Plex Mono', monospace; font-size: 11px; letter-spacing:0.2em; color: var(--ok);
+    border: 2px solid var(--ok); padding: 3px 40px; opacity:0.75;
+  }
+  .stamp-row{ display:flex; justify-content:space-between; gap: 14px; padding: 9px 0; border-bottom: 1px dashed var(--line); font-size: 13.5px; }
+  .stamp-row:last-of-type{ border-bottom:none; }
+  .stamp-row .k{ color: rgba(42,38,32,0.5); font-family:'IBM Plex Mono', monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; padding-top:2px; }
+  .stamp-row .v{ font-weight:600; text-align:right; color: var(--ink); }
+  .sig-preview{ margin-top: 16px; border-top: 1px solid var(--line); padding-top: 14px; display:flex; gap:20px; flex-wrap:wrap; }
+  .sig-preview .col{ flex:1; min-width:150px; }
+  .sig-preview .k{ font-family:'IBM Plex Mono', monospace; font-size:11px; text-transform:uppercase; letter-spacing:0.05em; color: rgba(42,38,32,0.5); margin-bottom:8px; }
+  .sig-preview img{ display:block; max-width: 100%; height:auto; }
+  .sig-preview .col:first-child img{ border-bottom: 1px solid var(--ink); padding-bottom:4px; max-width:200px; }
+  .sig-preview .col:last-child img{ max-height:110px; border:1px solid var(--line); }
+  .success-banner{ display:flex; align-items:center; gap:10px; margin-bottom:20px; }
+  .success-dot{ width:9px; height:9px; border-radius:50%; background: var(--ok); flex-shrink:0; box-shadow: 0 0 0 4px rgba(92,111,79,0.15); }
+  .success-banner p{ margin:0; font-size:13px; color: var(--ok); font-weight:600; }
+  .success-banner.offline .success-dot{ background: var(--brass-deep); box-shadow: 0 0 0 4px rgba(184,147,90,0.18); }
+  .success-banner.offline p{ color: var(--brass-deep); }
+  .offline-note{
+    background: rgba(184,147,90,0.10); border:1px solid rgba(184,147,90,0.35);
+    padding:12px 14px; border-radius:4px; margin:0 0 18px; line-height:1.5;
+  }
+
+  /* ---- Aviso de "pendientes por sincronizar" (fijo, visible en toda la app) ---- */
+  #pendingBadge{
+    position:fixed; top:14px; right:14px; z-index:40; display:none;
+    background: var(--ink); color: var(--paper); border:1px solid var(--brass);
+    padding:9px 14px; border-radius:30px; font-size:12.5px; font-weight:600;
+    box-shadow:0 10px 24px -8px rgba(0,0,0,0.4); cursor:pointer;
+    align-items:center; gap:8px;
+  }
+  #pendingBadge .dot{ width:7px; height:7px; border-radius:50%; background:var(--brass); flex-shrink:0; animation: pulse 1.6s infinite; }
+  @keyframes pulse{ 0%,100%{ opacity:1; } 50%{ opacity:0.35; } }
+  @media (max-width: 480px){
+    #pendingBadge{ top:auto; bottom:14px; right:14px; left:14px; justify-content:center; }
+  }
+  /* ---- Aviso de estado del "modo sin conexión" (arriba a la izquierda,
+     para no chocar con el badge de pendientes que va a la derecha) ---- */
+  #offlineStatus{
+    position:fixed; top:14px; left:14px; z-index:40;
+    background: var(--paper); color: var(--charcoal); border:1px solid var(--line);
+    padding:8px 13px; border-radius:30px; font-size:11.5px; font-weight:600;
+    box-shadow:0 10px 24px -8px rgba(0,0,0,0.35);
+  }
+  #offlineStatus.ready{ background:#EFF3EC; border-color:var(--ok); color:var(--ok); }
+  @media (max-width: 480px){
+    #offlineStatus{ top:14px; left:14px; right:14px; text-align:center; }
+  }
+  .form-error{
+    display:none; margin-top:14px; padding:10px 12px; background:#FBECEA;
+    border:1px solid var(--error); color:var(--error); font-size:12.5px;
+  }
+  .form-error.show{ display:block; }
+  @media (max-width: 480px){
+    .grid{ grid-template-columns: 1fr; }
+    header.head{ padding: 22px 20px 18px; flex-direction:column; align-items:flex-start; }
+    .ledger-progress{ padding: 0 20px; }
+    main{ padding: 24px 20px 28px; }
+    .folio{ text-align:left; }
+    .lp-step{ font-size:9px; }
+  }
+  @media (max-width: 400px){
+    .actions{ flex-direction:column; align-items:stretch; }
+    .actions .btn-primary{ margin-left:0; order:-1; }
+    .actions a.btn-primary{ text-align:center; }
+    .id-capture-options{ flex-direction:column; }
+    .sig-preview{ flex-direction:column; }
+  }
+  @media (prefers-reduced-motion: reduce){ .step{ animation:none; } }
+</style>
+</head>
+<body>
+  <!-- Aviso de estado del "modo sin conexión" (service worker) — para que
+       recepción pueda confirmar A SIMPLE VISTA que quedó listo, en vez de
+       adivinar si de verdad va a funcionar cuando se vaya el internet. -->
+  <div id="offlineStatus" style="display:none;"></div>
+
+  <!-- Aviso de registros guardados en el celular que todavía no se suben al
+       servidor — solo se muestra cuando hay al menos uno pendiente. Al
+       tocarlo, intenta sincronizar de inmediato en vez de esperar al
+       siguiente intento automático. -->
+  <button type="button" id="pendingBadge" title="Tocar para intentar sincronizar ahora">
+    <span class="dot"></span>
+    <span id="pendingBadgeText">0 pendientes por sincronizar</span>
+  </button>
+
+
+<div class="kiosk">
+  <header class="head">
+    <div class="brand">
+      <span class="eyebrow">Hotel Casa Marfil</span>
+      <h1>Registro de huésped</h1>
+    </div>
+    <div class="folio">Se generará al<br>confirmar el registro</div>
+  </header>
+
+  <div class="ledger-progress">
+    <div class="lp-step active" data-step="0">01 · Datos</div>
+    <div class="lp-step" data-step="1">02 · ID</div>
+    <div class="lp-step" data-step="2">03 · Términos</div>
+    <div class="lp-step" data-step="3">04 · Firma</div>
+    <div class="lp-step" data-step="4">05 · Listo</div>
+  </div>
+
+  <main>
+    <!-- STEP 0: Datos -->
+    <section class="step active" data-step="0">
+      <h2 class="step-title">Datos del huésped</h2>
+      <p class="step-sub">Completa la información como aparece en tu identificación oficial.</p>
+      <div class="grid">
+        <div class="field full">
+          <label for="fullName">Nombre completo</label>
+          <input type="text" id="fullName" placeholder="Ej. María Fernanda López Uc" inputmode="text" required>
+          <small class="err">Escribe el nombre completo (solo letras).</small>
+        </div>
+        <div class="field">
+          <label for="country">Nacionalidad</label>
+          <select id="country" required>
+            <option value="" disabled selected>Selecciona un país</option>
+            <option>México</option>
+            <option>Estados Unidos</option>
+            <option>Canadá</option>
+            <option>Guatemala</option>
+            <option>Belice</option>
+            <option>Honduras</option>
+            <option>El Salvador</option>
+            <option>Nicaragua</option>
+            <option>Costa Rica</option>
+            <option>Panamá</option>
+            <option>Cuba</option>
+            <option>República Dominicana</option>
+            <option>Puerto Rico</option>
+            <option>España</option>
+            <option>Argentina</option>
+            <option>Colombia</option>
+            <option>Brasil</option>
+            <option>Chile</option>
+            <option>Perú</option>
+            <option>Ecuador</option>
+            <option>Bolivia</option>
+            <option>Paraguay</option>
+            <option>Uruguay</option>
+            <option>Venezuela</option>
+            <option>Reino Unido</option>
+            <option>Francia</option>
+            <option>Alemania</option>
+            <option>Italia</option>
+            <option>Portugal</option>
+            <option>Países Bajos</option>
+            <option>Suiza</option>
+            <option>Suecia</option>
+            <option>Irlanda</option>
+            <option>Rusia</option>
+            <option>China</option>
+            <option>Japón</option>
+            <option>Corea del Sur</option>
+            <option>India</option>
+            <option>Australia</option>
+            <option>Nueva Zelanda</option>
+            <option>Israel</option>
+            <option>Sudáfrica</option>
+            <option value="Otro">Otro</option>
+          </select>
+          <small class="err">Selecciona la nacionalidad.</small>
+        </div>
+        <div class="field">
+          <label for="idNumber">N.° de identificación / pasaporte</label>
+          <input type="text" id="idNumber" placeholder="Ej. ABC123456" required>
+          <small class="err">Ingresa el número de identificación (letras y números).</small>
+        </div>
+        <div class="field">
+          <label for="email">Correo electrónico</label>
+          <input type="email" id="email" placeholder="ejemplo@correo.com" inputmode="email" required>
+          <small class="err">Ingresa un correo válido.</small>
+        </div>
+        <div class="field">
+          <label for="phone">Teléfono</label>
+          <input type="tel" id="phone" placeholder="+52 999 000 0000" inputmode="tel" required>
+          <small class="err">Ingresa un teléfono válido.</small>
+        </div>
+        <div class="field">
+          <label for="room">Tipo de habitación</label>
+          <select id="room" required>
+            <option value="" disabled selected>Selecciona una opción</option>
+          </select>
+          <small class="err">Selecciona el tipo de habitación.</small>
+        </div>
+        <div class="field">
+          <label for="checkInDate">Fecha de entrada</label>
+          <input type="date" id="checkInDate" required>
+          <small class="err">Selecciona la fecha de entrada.</small>
+        </div>
+        <div class="field">
+          <label for="guests">Número de personas</label>
+          <input type="text" id="guests" placeholder="Ej. 2" inputmode="numeric" required>
+          <small class="err">Ingresa un número de personas válido.</small>
+        </div>
+        <div class="field">
+          <label for="nights">Número de noches</label>
+          <input type="text" id="nights" placeholder="Ej. 3" inputmode="numeric" required>
+          <small class="err">Ingresa un número de noches válido.</small>
+        </div>
+        <div class="field">
+          <label for="checkOutDate">Fecha de salida</label>
+          <input type="text" id="checkOutDate" placeholder="Se calcula sola" readonly>
+        </div>
+        <div class="field">
+          <label for="platform">Plataforma de reservación</label>
+          <select id="platform" required>
+            <option value="" disabled selected>Selecciona una opción</option>
+          </select>
+          <small class="err">Selecciona la plataforma de reservación.</small>
+        </div>
+        <div class="field">
+          <label for="price">Precio a pagar</label>
+          <input type="text" id="price" placeholder="Ej. 1500.00" inputmode="decimal" required>
+          <small class="err">Ingresa un precio válido.</small>
+        </div>
+        <div class="field">
+          <label for="paymentType">Tipo de pago</label>
+          <select id="paymentType" required>
+            <option value="" disabled selected>Selecciona una opción</option>
+            <option>Efectivo</option>
+            <option>Tarjeta débito</option>
+            <option>Tarjeta crédito</option>
+            <option>Transferencia</option>
+            <option>Prepago (plataforma)</option>
+          </select>
+          <small class="err">Selecciona el tipo de pago. Usa "Prepago (plataforma)" si Booking, Airbnb u otra plataforma ya le cobró al huésped.</small>
+        </div>
+        <div class="field full split-toggle-field">
+          <label style="display:flex; align-items:center; gap:8px; text-transform:none; font-size:13px; cursor:pointer;">
+            <input type="checkbox" id="splitPaymentToggle" style="width:auto;">
+            ¿Pagó con dos formas de pago distintas? (ej. mitad efectivo, mitad tarjeta)
+          </label>
+        </div>
+        <div id="splitPaymentFields" class="field full" style="display:none;">
+          <div class="row2-split">
+            <div class="field">
+              <label for="splitAmount1">Cantidad con la primera forma de pago</label>
+              <input type="text" id="splitAmount1" inputmode="decimal" placeholder="Ej. 750.00">
+            </div>
+            <div class="field">
+              <label for="paymentType2">Segunda forma de pago</label>
+              <select id="paymentType2">
+                <option value="" disabled selected>Selecciona una opción</option>
+                <option>Efectivo</option>
+                <option>Tarjeta débito</option>
+                <option>Tarjeta crédito</option>
+                <option>Transferencia</option>
+              </select>
+            </div>
+            <div class="field">
+              <label for="splitAmount2">Cantidad con la segunda forma de pago</label>
+              <input type="text" id="splitAmount2" placeholder="Se calcula sola" readonly>
+            </div>
+          </div>
+          <small class="err" id="splitErr" style="display:none;"></small>
+        </div>
+        <div class="field">
+          <label for="paymentStatus">Estado de pago</label>
+          <select id="paymentStatus" required>
+            <option value="" disabled selected>Selecciona una opción</option>
+            <option>Pagado</option>
+            <option>Pendiente</option>
+            <option>Anticipo</option>
+          </select>
+          <small class="err">Selecciona el estado de pago.</small>
+        </div>
+        <div class="field" id="amountPaidField" style="display:none;">
+          <label for="amountPaid">Monto del anticipo</label>
+          <input type="text" id="amountPaid" placeholder="Ej. 500.00" inputmode="decimal">
+          <small class="err">Ingresa un monto de anticipo válido (menor al precio total).</small>
+        </div>
+        <!-- Aquí se insertan las preguntas personalizadas que el administrador
+             haya agregado desde Configuración — se cargan solas al abrir la página. -->
+        <div id="customFieldsContainer" class="field full" style="display:contents;"></div>
+      </div>
+      <div class="actions">
+        <span></span>
+        <button class="btn-primary" id="toStep1">Continuar →</button>
+      </div>
+    </section>
+
+    <!-- STEP 1: Foto de identificación -->
+    <section class="step" data-step="1">
+      <h2 class="step-title">Foto de identificación</h2>
+      <p class="step-sub">Toma una foto de tu pasaporte o identificación oficial (INE, licencia), o sube una desde el dispositivo.</p>
+
+      <div class="id-capture-options" id="idCaptureOptions">
+        <label class="id-option" for="idPhotoCameraInput">
+          <div class="icon">📷</div>
+          <div class="label">Tomar foto</div>
+          <div class="sub">Abre la cámara del dispositivo</div>
+          <input type="file" id="idPhotoCameraInput" accept="image/*" capture="environment">
+        </label>
+        <label class="id-option" for="idPhotoUploadInput">
+          <div class="icon">🖼️</div>
+          <div class="label">Subir archivo</div>
+          <div class="sub">Elegir desde la galería o el disco</div>
+          <input type="file" id="idPhotoUploadInput" accept="image/*">
+        </label>
+      </div>
+
+      <div class="id-preview-box" id="idPreviewBox">
+        <img id="idPhotoPreview" alt="Vista previa de la identificación">
+      </div>
+      <div style="text-align:center;">
+        <button class="btn-line id-retake" id="retakePhoto" style="display:none;">Tomar/elegir otra foto</button>
+      </div>
+
+      <div class="actions">
+        <button class="btn-ghost" id="backTo0">← Regresar</button>
+        <button class="btn-primary" id="toStep2" disabled>Continuar →</button>
+      </div>
+    </section>
+
+    <!-- STEP 2: Términos -->
+    <section class="step" data-step="2">
+      <h2 class="step-title">Política del hotel</h2>
+      <p class="step-sub">Antes de firmar, el huésped debe leer y aceptar lo siguiente.</p>
+      <div class="terms-box">
+        <h4>Términos de hospedaje</h4>
+        <p>
+          El check-out es a las 12:00 hrs. Cualquier daño a la habitación o al mobiliario
+          será cargado a la tarjeta registrada. El hotel no se hace responsable por objetos
+          de valor dejados fuera de la caja fuerte. Está prohibido fumar dentro de la habitación;
+          se aplicará un cargo por limpieza especial en caso contrario. El huésped autoriza al
+          hotel a conservar sus datos de contacto, identificación y firma con fines de registro
+          conforme a la ley aplicable.
+        </p>
+      </div>
+      <div class="consent">
+        <input type="checkbox" id="acceptTerms">
+        <p>Acepto los términos de hospedaje y autorizo el uso de mis datos para fines de registro.</p>
+      </div>
+      <div class="actions">
+        <button class="btn-ghost" id="backTo1">← Regresar</button>
+        <button class="btn-primary" id="toStep3" disabled>Continuar →</button>
+      </div>
+    </section>
+
+    <!-- STEP 3: Firma -->
+    <section class="step" data-step="3">
+      <h2 class="step-title">Firma del huésped</h2>
+      <p class="step-sub">Firma dentro del recuadro usando el dedo, mouse o stylus.</p>
+      <div class="sig-frame">
+        <canvas id="sigPad"></canvas>
+        <span class="sig-baseline-label">firma aquí</span>
+      </div>
+      <div class="sig-toolbar">
+        <span class="sig-hint" id="sigHint">El campo de firma está vacío.</span>
+        <button class="btn-line" id="clearSig">Borrar firma</button>
+      </div>
+      <div class="form-error" id="submitError"></div>
+      <div class="actions">
+        <button class="btn-ghost" id="backTo2">← Regresar</button>
+        <button class="btn-primary" id="toStep4" disabled>Confirmar registro →</button>
+      </div>
+    </section>
+
+    <!-- STEP 4: Confirmación -->
+    <section class="step" data-step="4">
+      <div class="success-banner" id="successBanner">
+        <span class="success-dot"></span>
+        <p id="successText">Registro guardado en el servidor correctamente</p>
+      </div>
+      <p class="step-sub offline-note" id="offlineNote" style="display:none;">
+        📴 No se pudo contactar al servidor, así que este registro se guardó aquí en el celular.
+        En cuanto el celular vuelva a tener conexión con el servidor (misma red del hotel), se va a
+        subir solo — no hace falta hacer nada más. El folio y el comprobante en PDF van a aparecer
+        cuando eso pase; mientras tanto puedes seguir usando la app normalmente.
+      </p>
+      <div class="stamp-card">
+        <div class="stamp-row"><span class="k">Folio</span><span class="v" id="sumFolio">—</span></div>
+        <div class="stamp-row"><span class="k">Huésped</span><span class="v" id="sumName">—</span></div>
+        <div class="stamp-row"><span class="k">Nacionalidad</span><span class="v" id="sumCountry">—</span></div>
+        <div class="stamp-row"><span class="k">Identificación</span><span class="v" id="sumId">—</span></div>
+        <div class="stamp-row"><span class="k">Correo</span><span class="v" id="sumPhone">—</span></div>
+        <div class="stamp-row"><span class="k">Teléfono</span><span class="v" id="sumTel">—</span></div>
+        <div class="stamp-row"><span class="k">Tipo de habitación</span><span class="v" id="sumRoom">—</span></div>
+        <div class="stamp-row"><span class="k">Fecha de entrada</span><span class="v" id="sumCheckIn">—</span></div>
+        <div class="stamp-row"><span class="k">Fecha de salida</span><span class="v" id="sumCheckOut">—</span></div>
+        <div class="stamp-row"><span class="k">Noches</span><span class="v" id="sumNights">—</span></div>
+        <div class="stamp-row"><span class="k">Precio</span><span class="v" id="sumPrice">—</span></div>
+        <div class="stamp-row"><span class="k">Tipo de pago</span><span class="v" id="sumPayment">—</span></div>
+        <div class="stamp-row"><span class="k">Registrado</span><span class="v" id="sumTime">—</span></div>
+        <div class="sig-preview">
+          <div class="col">
+            <div class="k">Firma capturada</div>
+            <img id="sigPreviewImg" alt="Firma del huésped">
+          </div>
+          <div class="col">
+            <div class="k">Identificación</div>
+            <img id="idPhotoPreviewFinal" alt="Foto de identificación">
+          </div>
+        </div>
+      </div>
+      <div class="actions">
+        <button class="btn-ghost" id="newCheckin">+ Nuevo registro</button>
+        <a class="btn-primary" id="downloadPdf" href="#" target="_blank" style="text-decoration:none; display:inline-block;">Ver comprobante PDF ↓</a>
+      </div>
+      <p class="step-sub" id="autoResetNotice" style="margin-top:18px; margin-bottom:0; text-align:center;">
+        Listo para el siguiente huésped en <strong id="countdownNum">12</strong>s ·
+        <a href="#" id="cancelAutoReset" style="color:var(--brass-deep);">cancelar</a>
+      </p>
+    </section>
+  </main>
+</div>
+
+<script>
+(function(){
+  // Igual que con el envío del check-in: si hay datos móviles pero no se
+  // alcanza al servidor (porque vive en la red del hotel, no en internet),
+  // una petición normal se queda esperando mucho tiempo en vez de fallar
+  // rápido. Este helper le pone un límite a CUALQUIER petición que se haga
+  // al cargar la página (opciones de habitación, plataformas, preguntas
+  // personalizadas) para que nunca se quede la pantalla pegada esperando.
+  function fetchConTimeout(url, opciones = {}, ms = 6000){
+    const controlador = new AbortController();
+    const timeoutId = setTimeout(() => controlador.abort(), ms);
+    return fetch(url, { ...opciones, signal: controlador.signal }).finally(() => clearTimeout(timeoutId));
+  }
+
+  // Guarda una copia de una respuesta exitosa en la MISMA caja de guardado
+  // que usa el service worker (mismo nombre de caché) — así, cuando el
+  // celular vuelva a abrir la app sin conexión, ya va a tener las opciones
+  // del formulario listas de inmediato, sin tener que esperar ni un
+  // segundo a que la red termine de fallar.
+  //
+  // Por qué hace falta esto además del service worker: la PRIMERA vez que
+  // se abre la app, el service worker todavía se está registrando y
+  // activando en el fondo — hay una breve carrera de tiempos en la que esa
+  // primera petición de opciones puede llegar a pasar ANTES de que el
+  // service worker esté listo para interceptarla y guardarla él solo. Esto
+  // lo guarda directamente desde la página, sin depender de esa carrera.
+  const NOMBRE_CACHE_RUNTIME = 'checkin-runtime-v2';
+  async function guardarEnCacheOffline(url, response){
+    if(!('caches' in window)) return;
+    try {
+      const cache = await caches.open(NOMBRE_CACHE_RUNTIME);
+      await cache.put(url, response.clone());
+    } catch(e){ /* si esto falla, no pasa nada grave — solo no queda listo para offline esta vez */ }
+  }
+
+  // El registro del service worker se hace aquí, lo antes posible en el
+  // script — antes incluso de pedir las opciones del formulario (tipos de
+  // habitación, plataformas). Cuanto antes se registre, más chance tiene de
+  // quedar activo A TIEMPO para esas primeras peticiones (y no solo a
+  // partir de la siguiente vez que se abra la app). "actualizarEstadoOffline"
+  // se usa aquí antes de "definirse" más abajo — funciona porque es una
+  // función declarada con "function", que en JavaScript queda disponible
+  // desde el principio del script sin importar en qué línea se escribió.
+  if('serviceWorker' in navigator){
+    actualizarEstadoOffline('🔌 Preparando modo sin conexión…', false);
+
+    // navigator.serviceWorker.register() puede quedarse esperando mucho
+    // tiempo sin avisar nada si el celular no logra alcanzar al servidor
+    // (por ejemplo, con datos móviles en vez de la wifi del hotel — los
+    // datos móviles NUNCA van a poder llegar a una dirección de red local
+    // como esta, así que ese intento nunca iba a funcionar). Por eso esto
+    // se "compite" contra un límite de tiempo: si no se resuelve rápido, se
+    // avisa con un mensaje claro en vez de quedarse pegado diciendo
+    // "Preparando…" para siempre.
+    const registroConTimeout = Promise.race([
+      navigator.serviceWorker.register('/sw.js'),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 6000)),
+    ]);
+
+    registroConTimeout.then((reg) => {
+      const marcarListo = () => {
+        actualizarEstadoOffline('✅ Listo para trabajar sin conexión', true);
+        setTimeout(() => { document.getElementById('offlineStatus').style.display = 'none'; }, 6000);
+      };
+      if(reg.active){
+        marcarListo();
+      } else {
+        const sw = reg.installing || reg.waiting;
+        if(sw){
+          sw.addEventListener('statechange', () => {
+            if(sw.state === 'activated') marcarListo();
+          });
+        }
+      }
+    }).catch((err) => {
+      if(err.message === 'timeout'){
+        // No es necesariamente un error permanente — puede que el celular
+        // esté con datos móviles (no puede llegar al servidor) en vez de
+        // conectado a la wifi del hotel. El registro puede seguir
+        // completándose solo en segundo plano; aquí nada más se deja de
+        // esperar por él para no tener la pantalla pegada.
+        actualizarEstadoOffline('⚠️ No se pudo confirmar — conéctate a la wifi del hotel (los datos móviles no llegan al servidor)', false);
+      } else {
+        // Si esto falla por otro motivo (por ejemplo, el certificado HTTPS
+        // todavía no se aceptó en este celular), la app sigue funcionando
+        // normal para registrar huéspedes — solo que sin poder abrir con
+        // cero conexión.
+        actualizarEstadoOffline('⚠️ No se pudo activar el modo sin conexión en este celular', false);
+      }
+    });
+  }
+
+  const steps = document.querySelectorAll('.step');
+  const lpSteps = document.querySelectorAll('.lp-step');
+
+  function goTo(stepIndex){
+    steps.forEach(s => s.classList.toggle('active', s.dataset.step == stepIndex));
+    lpSteps.forEach(s => {
+      const idx = Number(s.dataset.step);
+      s.classList.toggle('active', idx === stepIndex);
+      s.classList.toggle('done', idx < stepIndex);
+    });
+    window.scrollTo({top:0, behavior:'smooth'});
+
+    // El paso de firma (índice 3) está oculto hasta este momento, así que
+    // el canvas no tenía un tamaño real hasta ahora. Lo dimensionamos aquí,
+    // apenas se vuelve visible por primera vez.
+    if(stepIndex === 3) ensureCanvasSized();
+  }
+
+  // ---- Paso 0: datos ----
+  const fields = ['fullName','country','idNumber','email','phone','room','checkInDate','guests','nights','platform','price','paymentType','paymentStatus'];
+
+  // ---- Fecha de entrada / fecha de salida ----
+  // La fecha de salida NUNCA se escribe a mano: se calcula sola a partir de
+  // la fecha de entrada + el número de noches, y se recalcula en cuanto
+  // cualquiera de esos dos valores cambia (por ejemplo, si se agrega una
+  // noche más, la fecha de salida se extiende sola un día).
+  const checkInDateEl = document.getElementById('checkInDate');
+  const checkOutDateEl = document.getElementById('checkOutDate');
+  const nightsEl = document.getElementById('nights');
+
+  // OJO: "new Date().toISOString()" da la fecha en UTC, no la fecha local
+  // del huésped. México está detrás de UTC, así que por la tarde/noche ya
+  // es "mañana" en UTC — por eso el campo bloqueaba el día de hoy pasado
+  // cierta hora. Aquí se arma la fecha de hoy con los valores locales del
+  // navegador para que respete la hora real del huésped.
+  function hoyLocalISO(){
+    const d = new Date();
+    const y = d.getFullYear();
+    const m = String(d.getMonth() + 1).padStart(2, '0');
+    const day = String(d.getDate()).padStart(2, '0');
+    return `${y}-${m}-${day}`;
+  }
+
+  const hoyISO = hoyLocalISO();
+  checkInDateEl.min = hoyISO;
+  checkInDateEl.value = hoyISO;
+
+  function actualizarFechaSalida(){
+    const entrada = checkInDateEl.value;
+    const noches = Number(nightsEl.value);
+    if(entrada && noches >= 1){
+      // Se calcula en UTC "puro" (sin que la zona horaria del navegador
+      // mueva el día para atrás o adelante) y se muestra también forzando
+      // UTC — así el resultado es siempre la fecha de calendario correcta,
+      // sin importar en qué zona horaria esté el huésped.
+      const d = new Date(entrada + 'T00:00:00Z');
+      d.setUTCDate(d.getUTCDate() + noches);
+      checkOutDateEl.value = d.toLocaleDateString('es-MX', { day:'2-digit', month:'short', year:'numeric', timeZone: 'UTC' });
+      checkOutDateEl.dataset.iso = d.toISOString().slice(0, 10);
+    } else {
+      checkOutDateEl.value = '';
+      checkOutDateEl.dataset.iso = '';
+    }
+  }
+  checkInDateEl.addEventListener('change', actualizarFechaSalida);
+  nightsEl.addEventListener('input', actualizarFechaSalida);
+  actualizarFechaSalida();
+
+  // Filtra lo que se escribe en tiempo real: si el patrón no permite el
+  // carácter, ni siquiera lo deja aparecer en la pantalla.
+  function restringirEntrada(id, regex){
+    const el = document.getElementById(id);
+    el.addEventListener('input', () => {
+      const limpio = el.value.split('').filter(ch => regex.test(ch)).join('');
+      if(limpio !== el.value) el.value = limpio;
+    });
+  }
+  restringirEntrada('fullName', /[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]/);
+  restringirEntrada('idNumber', /[A-Za-z0-9\-\s]/);
+  restringirEntrada('phone', /[0-9+\-\s]/);
+  restringirEntrada('guests', /[0-9]/);
+  restringirEntrada('nights', /[0-9]/);
+  restringirEntrada('price', /[0-9.]/);
+  restringirEntrada('amountPaid', /[0-9.]/);
+  // El correo no se restringe letra por letra (el @ y el punto se necesitan
+  // en cualquier orden mientras se escribe) — se valida completo al salir del campo.
+  const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+  // Cargar las opciones de tipo de habitación y plataforma desde el servidor
+  // (así el formulario y la validación del servidor SIEMPRE coinciden).
+  fetchConTimeout('/api/form-options').then(r => {
+    guardarEnCacheOffline('/api/form-options', r);
+    return r.json();
+  }).then(opciones => {
+    const roomSelect = document.getElementById('room');
+    opciones.roomTypes.forEach(t => roomSelect.insertAdjacentHTML('beforeend', `<option>${t}</option>`));
+    const platformSelect = document.getElementById('platform');
+    opciones.platforms.forEach(p => platformSelect.insertAdjacentHTML('beforeend', `<option>${p}</option>`));
+  }).catch(() => { /* sin conexión y sin copia guardada todavía: el formulario sigue usable, solo sin estas opciones */ });
+
+  // El campo de monto de anticipo solo aparece si el estado de pago es "Anticipo"
+  const paymentStatusEl = document.getElementById('paymentStatus');
+  const amountPaidField = document.getElementById('amountPaidField');
+  paymentStatusEl.addEventListener('change', () => {
+    amountPaidField.style.display = paymentStatusEl.value === 'Anticipo' ? 'block' : 'none';
+  });
+
+  // ---- Pago con dos formas distintas (ej. mitad efectivo, mitad tarjeta) ----
+  // La segunda cantidad NUNCA se escribe a mano: siempre es "precio total
+  // menos lo que ya se puso en la primera forma de pago" — así las dos
+  // cantidades siempre suman exactamente el precio, sin que el huésped o
+  // recepción tengan que sacar la cuenta.
+  const splitToggle = document.getElementById('splitPaymentToggle');
+  const splitFields = document.getElementById('splitPaymentFields');
+  const splitAmount1El = document.getElementById('splitAmount1');
+  const splitAmount2El = document.getElementById('splitAmount2');
+  const paymentType2El = document.getElementById('paymentType2');
+  const splitErrEl = document.getElementById('splitErr');
+  const priceEl = document.getElementById('price');
+
+  function actualizarSegundaCantidad(){
+    const precio = Number(priceEl.value) || 0;
+    const monto1 = Number(splitAmount1El.value) || 0;
+    const restante = precio - monto1;
+    splitAmount2El.value = restante > 0 ? restante.toFixed(2) : '0.00';
+  }
+
+  // Si las dos cantidades del pago dividido ya quedaron completas (las dos
+  // formas de pago elegidas y las cantidades sumando el precio total), eso
+  // significa que el huésped YA PAGÓ TODO — el estado de pago se marca
+  // solo como "Pagado" en cuanto se completa, para que no se quede
+  // mostrando "Pendiente"/"Anticipo" con un pago que ya se completó.
+  function verificarCompletitudPagoDividido(){
+    if(!splitToggle.checked) return;
+    const precio = Number(priceEl.value) || 0;
+    const monto1 = Number(splitAmount1El.value) || 0;
+    const monto2 = Number(splitAmount2El.value) || 0;
+    const completo = paymentType2El.value && monto1 > 0 && monto2 > 0 && Math.abs((monto1 + monto2) - precio) < 0.01;
+    if(completo){
+      paymentStatusEl.value = 'Pagado';
+      amountPaidField.style.display = 'none';
+    }
+  }
+
+  splitToggle.addEventListener('change', () => {
+    splitFields.style.display = splitToggle.checked ? 'block' : 'none';
+    splitErrEl.style.display = 'none';
+    if(splitToggle.checked){
+      // Si ya se había puesto un anticipo, se asume que la primera forma de
+      // pago fue justo ese anticipo — solo falta indicar cómo se pagó el
+      // resto, en vez de capturar todo desde cero.
+      if(paymentStatusEl.value === 'Anticipo'){
+        const anticipoActual = Number(document.getElementById('amountPaid').value) || 0;
+        if(anticipoActual > 0) splitAmount1El.value = anticipoActual.toFixed(2);
+      }
+      actualizarSegundaCantidad();
+      verificarCompletitudPagoDividido();
+    }
+  });
+  splitAmount1El.addEventListener('input', () => { actualizarSegundaCantidad(); verificarCompletitudPagoDividido(); });
+  priceEl.addEventListener('input', () => { actualizarSegundaCantidad(); verificarCompletitudPagoDividido(); });
+  paymentType2El.addEventListener('change', verificarCompletitudPagoDividido);
+
+  // Valida el pago dividido — se llama desde validateStep0(). Regresa true
+  // si está todo bien (o si ni siquiera está activado el pago dividido).
+  function validarPagoDividido(){
+    if(!splitToggle.checked) return true;
+    const precio = Number(priceEl.value) || 0;
+    const monto1 = Number(splitAmount1El.value) || 0;
+    const monto2 = Number(splitAmount2El.value) || 0;
+    const tipo1 = document.getElementById('paymentType').value;
+    const tipo2 = paymentType2El.value;
+
+    if(!tipo2){
+      splitErrEl.textContent = 'Selecciona la segunda forma de pago.';
+      splitErrEl.style.display = 'block';
+      return false;
+    }
+    if(tipo1 === tipo2){
+      splitErrEl.textContent = 'Las dos formas de pago deben ser distintas entre sí.';
+      splitErrEl.style.display = 'block';
+      return false;
+    }
+    if(monto1 <= 0 || monto2 <= 0){
+      splitErrEl.textContent = 'Indica cuánto se pagó con la primera forma de pago (debe ser menos que el precio total).';
+      splitErrEl.style.display = 'block';
+      return false;
+    }
+    if(Math.abs((monto1 + monto2) - precio) > 0.01){
+      splitErrEl.textContent = 'Las dos cantidades deben sumar exactamente el precio total.';
+      splitErrEl.style.display = 'block';
+      return false;
+    }
+    splitErrEl.style.display = 'none';
+    return true;
+  }
+
+  function validateStep0(){
+    let valid = true;
+    fields.forEach(id => {
+      const el = document.getElementById(id);
+      const wrap = el.closest('.field');
+      const val = el.value.trim();
+      let ok = val !== '';
+      if(id === 'email' && ok) ok = EMAIL_REGEX.test(val);
+      if(id === 'phone' && ok) ok = val.replace(/[^0-9]/g,'').length >= 7;
+      if(id === 'guests' && ok) ok = Number(val) >= 1;
+      if(id === 'nights' && ok) ok = Number(val) >= 1;
+      if(id === 'price' && ok) ok = Number(val) > 0;
+      wrap.classList.toggle('invalid', !ok);
+      if(!ok) valid = false;
+    });
+    // El monto de anticipo solo es obligatorio si el estado es "Anticipo"
+    if(paymentStatusEl.value === 'Anticipo'){
+      const amountEl = document.getElementById('amountPaid');
+      const wrap = amountEl.closest('.field');
+      const val = Number(amountEl.value.trim());
+      const ok = val > 0 && val < Number(document.getElementById('price').value.trim());
+      wrap.classList.toggle('invalid', !ok);
+      if(!ok) valid = false;
+    }
+    if(!validarPagoDividido()) valid = false;
+    // Validar también las preguntas personalizadas obligatorias
+    camposPersonalizados.forEach(campo => {
+      if(!campo.required) return;
+      const el = document.getElementById('custom_' + campo.fieldKey);
+      if(!el) return;
+      const wrap = el.closest('.field');
+      const ok = el.value.trim() !== '';
+      wrap.classList.toggle('invalid', !ok);
+      if(!ok) valid = false;
+    });
+    return valid;
+  }
+  document.getElementById('toStep1').addEventListener('click', () => { if(validateStep0()) goTo(1); });
+  document.getElementById('backTo0').addEventListener('click', () => goTo(0));
+
+  // ---- Preguntas personalizadas: se cargan desde el servidor y se
+  // insertan en el formulario apenas abre la página ----
+  let camposPersonalizados = [];
+  const REGEX_POR_TIPO = {
+    letters: /[A-Za-zÀ-ÖØ-öø-ÿ'\-\s]/,
+    numbers: /[0-9.]/,
+  };
+  fetchConTimeout('/api/fields')
+    .then(r => {
+      guardarEnCacheOffline('/api/fields', r);
+      return r.json();
+    })
+    .then(campos => {
+      camposPersonalizados = campos;
+      const cont = document.getElementById('customFieldsContainer');
+      campos.forEach(campo => {
+        const wrap = document.createElement('div');
+        wrap.className = 'field';
+        const inputId = 'custom_' + campo.fieldKey;
+        let inputHtml;
+        if(campo.type === 'select'){
+          const opciones = campo.options.map(o => `<option>${o}</option>`).join('');
+          inputHtml = `<select id="${inputId}"><option value="" disabled selected>Selecciona una opción</option>${opciones}</select>`;
+        } else {
+          const inputMode = campo.type === 'numbers' ? 'decimal' : campo.type === 'email' ? 'email' : 'text';
+          inputHtml = `<input type="text" id="${inputId}" inputmode="${inputMode}">`;
+        }
+        wrap.innerHTML = `<label for="${inputId}">${campo.label}${campo.required ? '' : ' (opcional)'}</label>${inputHtml}<small class="err">Este campo no tiene el formato correcto.</small>`;
+        cont.appendChild(wrap);
+        if(REGEX_POR_TIPO[campo.type]){
+          const el = document.getElementById(inputId);
+          el.addEventListener('input', () => {
+            const limpio = el.value.split('').filter(ch => REGEX_POR_TIPO[campo.type].test(ch)).join('');
+            if(limpio !== el.value) el.value = limpio;
+          });
+        }
+      });
+    })
+    .catch(() => { /* si falla, el check-in sigue funcionando solo con los campos fijos */ });
+
+  // ---- Paso 1: foto de identificación ----
+  const idPhotoCameraInput = document.getElementById('idPhotoCameraInput');
+  const idPhotoUploadInput = document.getElementById('idPhotoUploadInput');
+  const idPhotoPreview = document.getElementById('idPhotoPreview');
+  const idPreviewBox = document.getElementById('idPreviewBox');
+  const idCaptureOptions = document.getElementById('idCaptureOptions');
+  const retakePhoto = document.getElementById('retakePhoto');
+  const toStep2 = document.getElementById('toStep2');
+  let idPhotoDataUrl = null;
+
+  function handlePhotoFile(file){
+    if(!file) return;
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      idPhotoDataUrl = e.target.result;
+      idPhotoPreview.src = idPhotoDataUrl;
+      idPreviewBox.style.display = 'block';
+      idCaptureOptions.style.display = 'none';
+      retakePhoto.style.display = 'inline-block';
+      toStep2.disabled = false;
+    };
+    reader.readAsDataURL(file);
+  }
+
+  idPhotoCameraInput.addEventListener('change', () => handlePhotoFile(idPhotoCameraInput.files[0]));
+  idPhotoUploadInput.addEventListener('change', () => handlePhotoFile(idPhotoUploadInput.files[0]));
+
+  retakePhoto.addEventListener('click', (e) => {
+    e.preventDefault();
+    idPhotoCameraInput.value = '';
+    idPhotoUploadInput.value = '';
+    idPhotoDataUrl = null;
+    idPreviewBox.style.display = 'none';
+    idCaptureOptions.style.display = 'flex';
+    retakePhoto.style.display = 'none';
+    toStep2.disabled = true;
+  });
+  document.getElementById('backTo1').addEventListener('click', () => goTo(1));
+  toStep2.addEventListener('click', () => { if(idPhotoDataUrl) goTo(2); });
+
+  // ---- Paso 2: términos ----
+  const acceptTerms = document.getElementById('acceptTerms');
+  const toStep3 = document.getElementById('toStep3');
+  acceptTerms.addEventListener('change', () => { toStep3.disabled = !acceptTerms.checked; });
+  toStep3.addEventListener('click', () => { if(acceptTerms.checked) goTo(3); });
+  document.getElementById('backTo2').addEventListener('click', () => goTo(2));
+
+  // ---- Paso 3: firma (Pointer Events — funciona con mouse, dedo y stylus) ----
+  const canvas = document.getElementById('sigPad');
+  const ctx = canvas.getContext('2d');
+  let drawing = false;
+  let hasSignature = false;
+
+  function resizeCanvas(){
+    const ratio = window.devicePixelRatio || 1;
+    const rect = canvas.getBoundingClientRect();
+    if(rect.width === 0 || rect.height === 0) return;
+    canvas.width = rect.width * ratio;
+    canvas.height = rect.height * ratio;
+    ctx.lineWidth = 2.2 * ratio;
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+    ctx.strokeStyle = '#1B2430';
+  }
+
+  function ensureCanvasSized(){
+    if(canvas.width === 0 || canvas.height === 0) resizeCanvas();
+  }
+
+  window.addEventListener('resize', () => {
+    canvas.width = 0;
+    canvas.height = 0;
+    resizeCanvas();
+  });
+
+  // Convierte la posición del clic/toque (en píxeles de pantalla) a la
+  // posición correspondiente dentro del "lienzo" interno del canvas.
+  // Se recalcula la proporción en cada evento — así nunca queda
+  // desalineado, sin importar si el canvas se redimensionó entre medio.
+  function getPos(e){
+    const rect = canvas.getBoundingClientRect();
+    const scaleX = canvas.width / rect.width;
+    const scaleY = canvas.height / rect.height;
+    return {
+      x: (e.clientX - rect.left) * scaleX,
+      y: (e.clientY - rect.top) * scaleY,
+    };
+  }
+
+  const sigHint = document.getElementById('sigHint');
+  const toStep4 = document.getElementById('toStep4');
+  function updateSigState(){
+    sigHint.textContent = hasSignature ? 'Firma capturada.' : 'El campo de firma está vacío.';
+    toStep4.disabled = !hasSignature;
+  }
+
+  canvas.addEventListener('pointerdown', (e) => {
+    drawing = true;
+    hasSignature = true;
+    canvas.setPointerCapture(e.pointerId);
+    const p = getPos(e);
+    ctx.beginPath();
+    ctx.moveTo(p.x, p.y);
+    updateSigState();
+  });
+
+  canvas.addEventListener('pointermove', (e) => {
+    if(!drawing) return;
+    const p = getPos(e);
+    ctx.lineTo(p.x, p.y);
+    ctx.stroke();
+  });
+
+  function stopDrawing(e){
+    if(!drawing) return;
+    drawing = false;
+    try { canvas.releasePointerCapture(e.pointerId); } catch(err){ /* no-op */ }
+  }
+  canvas.addEventListener('pointerup', stopDrawing);
+  canvas.addEventListener('pointercancel', stopDrawing);
+  canvas.addEventListener('pointerleave', () => { drawing = false; });
+
+  document.getElementById('clearSig').addEventListener('click', () => {
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+    hasSignature = false;
+    updateSigState();
+  });
+
+  // ================================================================
+  // ---- Modo sin conexión: guarda el registro en el celular y lo ----
+  // ---- sube solo en cuanto vuelve a haber red con el servidor.  ----
+  // ================================================================
+  //
+  // Se usa IndexedDB (una base de datos que vive dentro del propio
+  // navegador/celular) como "buzón de salida": cuando el envío al servidor
+  // falla por falta de conexión, el registro completo (con firma y foto
+  // incluidas) se guarda ahí con un identificador único (clientId). Ese
+  // mismo identificador viaja al servidor cuando por fin se sincroniza, así
+  // que si el intento se repite dos veces (por ejemplo por un corte de red
+  // a medio envío), el servidor reconoce que ya lo había recibido y no crea
+  // un check-in duplicado — ver la nota de idempotencia en server.js.
+  const DB_NAME = 'checkin-offline';
+  const STORE_NAME = 'pendientes';
+
+  function abrirDB(){
+    return new Promise((resolve, reject) => {
+      const req = indexedDB.open(DB_NAME, 1);
+      req.onupgradeneeded = () => {
+        if(!req.result.objectStoreNames.contains(STORE_NAME)){
+          req.result.createObjectStore(STORE_NAME, { keyPath: 'clientId' });
+        }
+      };
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function guardarPendiente(registro){
+    const db = await abrirDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).put(registro);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  async function listarPendientes(){
+    const db = await abrirDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readonly');
+      const req = tx.objectStore(STORE_NAME).getAll();
+      req.onsuccess = () => resolve(req.result);
+      req.onerror = () => reject(req.error);
+    });
+  }
+
+  async function eliminarPendiente(clientId){
+    const db = await abrirDB();
+    return new Promise((resolve, reject) => {
+      const tx = db.transaction(STORE_NAME, 'readwrite');
+      tx.objectStore(STORE_NAME).delete(clientId);
+      tx.oncomplete = () => resolve();
+      tx.onerror = () => reject(tx.error);
+    });
+  }
+
+  function actualizarBadgePendientes(cantidad){
+    const badge = document.getElementById('pendingBadge');
+    const texto = document.getElementById('pendingBadgeText');
+    if(cantidad > 0){
+      texto.textContent = cantidad === 1 ? '1 registro pendiente por sincronizar' : `${cantidad} registros pendientes por sincronizar`;
+      badge.style.display = 'flex';
+    } else {
+      badge.style.display = 'none';
+    }
+  }
+
+  // Muestra si el "modo sin conexión" (service worker) ya quedó activo o
+  // no — para que recepción pueda confirmar A SIMPLE VISTA, antes de que
+  // se vaya la luz, si de verdad va a poder abrir la app sin internet.
+  function actualizarEstadoOffline(texto, listo){
+    const el = document.getElementById('offlineStatus');
+    el.textContent = texto;
+    el.classList.toggle('ready', listo);
+    el.style.display = 'block';
+  }
+
+  // Intenta subir todos los registros guardados en el celular. Se detiene
+  // en cuanto un intento vuelve a fallar por conexión (para no insistir una
+  // y otra vez sin sentido mientras sigue sin haber red) — el siguiente
+  // disparador automático (evento "online", el intervalo, o abrir la app)
+  // lo vuelve a intentar solo.
+  let sincronizando = false;
+  async function sincronizarPendientes(){
+    if(sincronizando) return;
+    sincronizando = true;
+    try {
+      const pendientes = await listarPendientes();
+      for(const registro of pendientes){
+        // Este envío incluye la firma y la foto de identificación (pueden
+        // pesar uno o dos MB juntas) — con señal débil pero real, subir eso
+        // puede tardar más que una petición ligera sin llegar a fallar de
+        // verdad. Por eso este límite es más generoso (25s) que el de las
+        // peticiones sin archivos (form-options, fields), que si tardan más
+        // de unos segundos sí es señal de que no hay manera de alcanzar al
+        // servidor en absoluto.
+        const controlador = new AbortController();
+        const timeoutId = setTimeout(() => controlador.abort(), 25000);
+        try {
+          const res = await fetch('/api/checkins', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(registro),
+            signal: controlador.signal,
+          });
+          if(res.ok || res.status === 400){
+            // 200: se guardó (o ya existía, gracias al clientId). 400: el
+            // servidor lo rechazó por datos inválidos — reintentarlo tal
+            // cual jamás va a funcionar, así que se saca de la cola en vez
+            // de dejarlo atorado ahí para siempre.
+            await eliminarPendiente(registro.clientId);
+          }
+        } catch(networkErr){
+          break; // Sigue sin haber conexión real — se detiene por ahora.
+        } finally {
+          clearTimeout(timeoutId);
+        }
+      }
+    } finally {
+      const restantes = await listarPendientes();
+      actualizarBadgePendientes(restantes.length);
+      sincronizando = false;
+    }
+  }
+
+  document.getElementById('pendingBadge').addEventListener('click', sincronizarPendientes);
+  window.addEventListener('online', sincronizarPendientes);
+  setInterval(sincronizarPendientes, 30000); // reintento de respaldo cada 30s
+  sincronizarPendientes(); // por si ya había registros pendientes de una sesión anterior
+
+  // ---- Enviar al servidor ----
+  const submitError = document.getElementById('submitError');
+  let enviandoCheckin = false;
+
+  async function submitCheckin(){
+    // Guardián extra contra doble envío: además de deshabilitar el botón,
+    // esta bandera corta la función de inmediato si por cualquier motivo
+    // (doble toque muy rápido en el celular, doble evento, etc.) se le
+    // vuelve a llamar mientras el envío anterior sigue en curso.
+    if(enviandoCheckin) return;
+    enviandoCheckin = true;
+
+    submitError.classList.remove('show');
+    toStep4.disabled = true;
+    toStep4.textContent = 'Enviando…';
+
+    const respuestasPersonalizadas = {};
+    camposPersonalizados.forEach(campo => {
+      const el = document.getElementById('custom_' + campo.fieldKey);
+      if(el) respuestasPersonalizadas[campo.fieldKey] = el.value.trim();
+    });
+
+    const payload = {
+      // clientId identifica este envío de forma única para que, si se
+      // guarda offline y se reintenta después (o si hay un corte de red a
+      // media respuesta durante un envío normal), el servidor nunca lo
+      // registre dos veces — ver la nota de idempotencia en server.js.
+      clientId: crypto.randomUUID(),
+      queuedAt: new Date().toISOString(),
+      fullName: document.getElementById('fullName').value.trim(),
+      country: document.getElementById('country').value,
+      idNumber: document.getElementById('idNumber').value.trim(),
+      email: document.getElementById('email').value.trim(),
+      phone: document.getElementById('phone').value.trim(),
+      room: document.getElementById('room').value,
+      checkInDate: checkInDateEl.value,
+      guests: document.getElementById('guests').value.trim(),
+      nights: document.getElementById('nights').value.trim(),
+      platform: document.getElementById('platform').value,
+      price: document.getElementById('price').value.trim(),
+      paymentType: document.getElementById('paymentType').value,
+      paymentType2: splitToggle.checked ? paymentType2El.value : undefined,
+      splitAmount1: splitToggle.checked ? splitAmount1El.value : undefined,
+      splitAmount2: splitToggle.checked ? splitAmount2El.value : undefined,
+      paymentStatus: paymentStatusEl.value,
+      amountPaid: paymentStatusEl.value === 'Anticipo' ? document.getElementById('amountPaid').value.trim() : undefined,
+      termsAccepted: acceptTerms.checked,
+      signatureDataUrl: canvas.toDataURL('image/png'),
+      idPhotoDataUrl: idPhotoDataUrl,
+      customAnswers: respuestasPersonalizadas,
+    };
+
+    // Se intenta mandar al servidor, con un tiempo límite de 25 segundos.
+    // Esto es clave: si el celular tiene datos móviles ENCENDIDOS pero no
+    // puede alcanzar al servidor (porque vive en la red wifi del hotel, no
+    // en internet), el envío NO falla rápido como cuando no hay señal en
+    // absoluto — se queda esperando una respuesta que nunca llega, a veces
+    // por varios minutos. Pasado el límite, se trata exactamente igual que
+    // "no hay conexión": se guarda en el celular y se sincroniza después,
+    // en vez de dejar la app trabada. El límite es más generoso que en
+    // otras peticiones porque este envío incluye la firma y la foto de
+    // identificación — con señal débil pero real, subir esas imágenes
+    // puede tardar bastante sin que eso signifique que en verdad no hay
+    // manera de alcanzar al servidor.
+    const controlador = new AbortController();
+    const timeoutId = setTimeout(() => controlador.abort(), 25000);
+
+    let res;
+    try {
+      res = await fetch('/api/checkins', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+        signal: controlador.signal,
+      });
+    } catch(networkErr){
+      // Sin conexión, servidor apagado, o se agotó el tiempo de espera —
+      // los tres casos se resuelven igual: queda guardado en el celular.
+      await guardarPendiente(payload);
+      const restantes = await listarPendientes();
+      actualizarBadgePendientes(restantes.length);
+      mostrarConfirmacion(payload, null);
+      toStep4.disabled = !hasSignature;
+      toStep4.textContent = 'Confirmar registro →';
+      enviandoCheckin = false;
+      return;
+    } finally {
+      clearTimeout(timeoutId);
+    }
+
+    try {
+      const data = await res.json();
+      if(!res.ok) throw new Error(data.error || 'No se pudo guardar el registro.');
+      mostrarConfirmacion(payload, data);
+    } catch(err){
+      submitError.textContent = err.message;
+      submitError.classList.add('show');
+    } finally {
+      toStep4.disabled = !hasSignature;
+      toStep4.textContent = 'Confirmar registro →';
+      enviandoCheckin = false;
+    }
+  }
+
+  // Pinta la pantalla de confirmación (paso 4). Si "data" viene vacío, es
+  // porque el registro se guardó sin conexión — se avisa claramente que
+  // todavía no tiene folio ni PDF, y que eso va a llegar solo en cuanto se
+  // sincronice, para que no parezca que algo falló.
+  function mostrarConfirmacion(payload, data){
+    const esOffline = !data;
+    document.getElementById('successBanner').classList.toggle('offline', esOffline);
+    document.getElementById('successText').textContent = esOffline
+      ? 'Guardado en el celular — pendiente de subir al servidor'
+      : 'Registro guardado en el servidor correctamente';
+    document.getElementById('offlineNote').style.display = esOffline ? 'block' : 'none';
+
+    document.getElementById('sumFolio').textContent = esOffline ? 'Pendiente de sincronizar' : data.folio;
+    document.getElementById('sumName').textContent = payload.fullName;
+    document.getElementById('sumCountry').textContent = payload.country;
+    document.getElementById('sumId').textContent = payload.idNumber;
+    document.getElementById('sumPhone').textContent = payload.email;
+    document.getElementById('sumTel').textContent = payload.phone;
+    document.getElementById('sumCheckIn').textContent = (data && data.checkInDate) || payload.checkInDate;
+    document.getElementById('sumCheckOut').textContent = (data && data.checkOutDate) || checkOutDateEl.value;
+    document.getElementById('sumNights').textContent = payload.nights;
+    document.getElementById('sumPrice').textContent = '$' + Number(payload.price).toFixed(2);
+    const textoTipoPago = payload.paymentType2
+      ? `${payload.paymentType} ($${Number(payload.splitAmount1).toFixed(2)}) + ${payload.paymentType2} ($${Number(payload.splitAmount2).toFixed(2)})`
+      : payload.paymentType;
+    document.getElementById('sumPayment').textContent = textoTipoPago + ' — ' + payload.paymentStatus;
+    document.getElementById('sumRoom').textContent = payload.room;
+    document.getElementById('sumTime').textContent = esOffline
+      ? new Date(payload.queuedAt).toLocaleString('es-MX', { day:'2-digit', month:'short', year:'numeric', hour:'2-digit', minute:'2-digit' })
+      : data.fecha;
+    document.getElementById('sigPreviewImg').src = payload.signatureDataUrl;
+    document.getElementById('idPhotoPreviewFinal').src = payload.idPhotoDataUrl;
+
+    const pdfBtn = document.getElementById('downloadPdf');
+    if(esOffline){
+      pdfBtn.style.display = 'none';
+    } else {
+      pdfBtn.style.display = 'inline-block';
+      pdfBtn.href = data.pdfUrl;
+    }
+
+    goTo(4);
+    startAutoReset();
+  }
+
+  // ---- Reinicio automático para el siguiente huésped ----
+  // El PDF se abre en una pestaña aparte (target="_blank"), así que aunque
+  // el huésped o el personal lo dejen abierto para verlo o guardarlo, no
+  // interfiere con que esta pantalla vuelva a quedar lista para el siguiente
+  // registro. Guardar/abrir el PDF nunca borra ni modifica nada del servidor.
+  let autoResetInterval = null;
+  function startAutoReset(){
+    let secondsLeft = 12;
+    const countdownEl = document.getElementById('countdownNum');
+    const noticeEl = document.getElementById('autoResetNotice');
+    noticeEl.style.display = 'block';
+    countdownEl.textContent = secondsLeft;
+
+    autoResetInterval = setInterval(() => {
+      secondsLeft -= 1;
+      countdownEl.textContent = secondsLeft;
+      if(secondsLeft <= 0){
+        clearInterval(autoResetInterval);
+        location.reload();
+      }
+    }, 1000);
+  }
+
+  document.getElementById('cancelAutoReset').addEventListener('click', (e) => {
+    e.preventDefault();
+    clearInterval(autoResetInterval);
+    document.getElementById('autoResetNotice').style.display = 'none';
+  });
+
+  document.getElementById('toStep4').addEventListener('click', () => {
+    if(!hasSignature) return;
+    submitCheckin();
+  });
+
+  document.getElementById('newCheckin').addEventListener('click', () => location.reload());
+})();
+</script>
+</body>
+</html>
